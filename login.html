@@ -12,8 +12,8 @@
         <!-- JSで処理するため、formの送信を制御します -->
         <form id="loginForm">
             <div class="input-group">
-                <label for="kanriID">管理者ID</label>
-                <input type="kanriID" id="kanriID" required>
+                <label for="email">管理者ID(メールアドレス)</label>
+                <input type="email" id="email" required>
             </div>
             <div class="input-group">
                 <label for="password">パスワード</label>
@@ -25,6 +25,6 @@
     </div>
 
     <!-- ここにFirebaseなどのスクリプト、および独自のJSを読み込みます -->
-    <script src="tamesi.js"></script>
+    <script type="module" src="tamesi.js"></script>
 </body>
 </html>
