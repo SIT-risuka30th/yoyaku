@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理者ログイン</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="login-body">
+    <div class="login-container">
+        <h2>管理者ログイン</h2>
+        <!-- JSで処理するため、formの送信を制御します -->
+        <form id="loginForm">
+            <div class="input-group">
+                <label for="kanriID">管理者ID</label>
+                <input type="kanriID" id="kanriID" required>
+            </div>
+            <div class="input-group">
+                <label for="password">パスワード</label>
+                <input type="password" id="password" required>
+            </div>
+            <button type="submit" class="btn">ログイン</button>
+        </form>
+        <p id="errorMessage" class="error"></p>
+    </div>
+
+    <!-- ここにFirebaseなどのスクリプト、および独自のJSを読み込みます -->
+    <script src="tamesi.js"></script>
+</body>
+</html>
