@@ -51,6 +51,7 @@
                     <th style="padding: 12px 10px;">氏名</th>
                     <th style="padding: 12px 10px;">注文内容</th>
                     <th style="padding: 12px 10px;">合計金額</th>
+                    <th style="padding: 12px 10px;">操作</th>
                 </tr>
             </thead>
             <tbody id="orderTableBody">
@@ -67,86 +68,110 @@
   <script type="module">
    // 1. Firebaseの必要な機能をインポート
       import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-     import { getFirestore, doc, onSnapshot, collection, query } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+     import { getFirestore, doc, onSnapshot, collection, query, deleteDoc } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 
-    // 2. あなたのFirebase設定
-    const firebaseConfig = {
-        apiKey: "AIzaSyBtLHgM6RzCU_grTElSqLCmsaRu4rVe-4o", 
-        authDomain: "://firebaseapp.com", 
-        projectId: "koubai-7b6a6", 
-        storageBucket: "koubai-7b6a6.firebasetorage.app", 
-        messagingSenderId: "934504714342", 
-        appId: "1:934504714342:web:e160ada63fcfcd906c5da7"
-    };
+   const firebaseConfig = {
+            apiKey: "AIzaSyBtLHgM6RzCU_grTElSqLCmsaRu4rVe-4o", 
+            authDomain: "://firebaseapp.com", 
+            projectId: "koubai-7b6a6", 
+            storageBucket: "koubai-7b6a6.firebasetorage.app", 
+            messagingSenderId: "934504714342", 
+            appId: "1:934504714342:web:e160ada63fcfcd906c5da7"
+        };
 
-    // 3. 初期化
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+        // 3. 初期化
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
 
-    // --- 📊 ① アクセスカウンターのリアルタイム監視 ---
-    // エラーで止まらないよう単一ドキュメントを真っ先に監視します
-    onSnapshot(doc(db, "analytics", "counter"), (docSnap) => {
-        const viewCountEl = document.getElementById("viewCount");
-        if (!viewCountEl) return;
+        // --- 📊 ① アクセスカウンターのリアルタイム監視 ---
+        onSnapshot(doc(db, "analytics", "counter"), (docSnap) => {
+            const viewCountEl = document.getElementById("viewCount");
+            if (!viewCountEl) return;
 
-        if (docSnap.exists() && docSnap.data().views !== undefined) {
-            viewCountEl.textContent = docSnap.data().views;
-        } else {
-            viewCountEl.textContent = "0";
-        }
-    }, (error) => {
-        console.error("アクセスカウンターエラー:", error);
-    });
-
-    // --- 📦 ② 注文データのリアルタイム監視 ---
-    // 🚨 エラーの原因だった orderBy("createdAt") を外し、最もシンプルなクエリにしました
-    const ordersQuery = query(collection(db, "orders"));
-
-    onSnapshot(ordersQuery, (querySnapshot) => {
-        const tableBody = document.getElementById("orderTableBody");
-        if (!tableBody) return;
-        
-        tableBody.innerHTML = ""; // 古い表示をクリア
-
-        if (querySnapshot.empty) {
-            tableBody.innerHTML = `<tr><td colspan="4" style="padding: 20px; text-align: center; color: #999;">まだ注文はありません。</td></tr>`;
-            return;
-        }
-
-        // 配列に一度入れて、最新順（JavaScript側で逆順にする）に表示します
-        const orderRows = [];
-
-        querySnapshot.forEach((doc) => {
-            const data = doc.data();
-            
-            const gakunen = data.gakunen || "";
-            const className = data.className || "";
-            const name = data.name || "不明";
-            const items = data.items || "なし";
-            const totalPrice = data.totalPrice ? data.totalPrice.toLocaleString() + "円" : "0円";
-
-            const rowHTML = `
-                <tr style="border-bottom: 1px solid #eee;">
-                    <td style="padding: 12px 10px; color: #555;">${gakunen} ${className}</td>
-                    <td style="padding: 12px 10px; font-weight: bold; color: #333;">${name}</td>
-                    <td style="padding: 12px 10px; color: #666; font-size: 14px; max-width: 400px; word-wrap: break-word;">${items}</td>
-                    <td style="padding: 12px 10px; font-weight: bold; color: #e67e22;">${totalPrice}</td>
-                </tr>
-            `;
-            orderRows.push(rowHTML);
+            if (docSnap.exists() && docSnap.data().views !== undefined) {
+                viewCountEl.textContent = docSnap.data().views;
+            } else {
+                viewCountEl.textContent = "0";
+            }
+        }, (error) => {
+            console.error("アクセスカウンターエラー:", error);
         });
 
-        // 💡 データベース側ではなく、画面側で新しい順（逆順）に並び替えて出力します
-        orderRows.reverse();
-        tableBody.innerHTML = orderRows.join("");
+        // --- 📦 ② 注文データのリアルタイム監視 ---
+        const ordersQuery = query(collection(db, "orders"));
 
-    }, (error) => {
-        console.error("注文データの取得エラー:", error);
-        const tableBody = document.getElementById("orderTableBody");
-        if (tableBody) {
-            tableBody.innerHTML = `<tr><td colspan="4" style="padding: 20px; text-align: center; color: red;">データの取得に失敗しました。</td></tr>`;
+        onSnapshot(ordersQuery, (querySnapshot) => {
+            const tableBody = document.getElementById("orderTableBody");
+            if (!tableBody) return;
+            
+            tableBody.innerHTML = "";
+
+            if (querySnapshot.empty) {
+                tableBody.innerHTML = `<tr><td colspan="5" style="padding: 20px; text-align: center; color: #999;">まだ注文はありません。</td></tr>`;
+                return;
+            }
+
+            const orderRows = [];
+
+            querySnapshot.forEach((orderDoc) => {
+                const data = orderDoc.data();
+                const docId = orderDoc.id; // 💡 削除するために必要なデータのIDを取得します
+                
+                const gakunen = data.gakunen || "";
+                const className = data.className || "";
+                const name = data.name || "不明";
+                const items = data.items || "なし";
+                const totalPrice = data.totalPrice ? data.totalPrice.toLocaleString() + "円" : "0円";
+
+                // 💡 行の中に「削除ボタン」を埋め込み、クリックされたら deleteOrder関数 を実行するようにします
+                const rowHTML = `
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 12px 10px; color: #555;">${gakunen} ${className}</td>
+                        <td style="padding: 12px 10px; font-weight: bold; color: #333;">${name}</td>
+                        <td style="padding: 12px 10px; color: #666; font-size: 14px; max-width: 400px; word-wrap: break-word;">${items}</td>
+                        <td style="padding: 12px 10px; font-weight: bold; color: #e67e22;">${totalPrice}</td>
+                        <td style="padding: 12px 10px;">
+                            <button class="btn-delete" data-id="${docId}" style="background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">削除</button>
+                        </td>
+                    </tr>
+                `;
+                orderRows.push(rowHTML);
+            });
+
+            // 画面側で新しい順（逆順）に並び替えて出力
+            orderRows.reverse();
+            tableBody.innerHTML = orderRows.join("");
+
+            // 💡 生成されたすべての削除ボタンにイベントを設定する
+            const deleteButtons = tableBody.querySelectorAll('.btn-delete');
+            deleteButtons.forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const id = e.target.getAttribute('data-id');
+                    deleteOrder(id);
+                });
+            });
+
+        }, (error) => {
+            console.error("注文データの取得エラー:", error);
+            const tableBody = document.getElementById("orderTableBody");
+            if (tableBody) {
+                tableBody.innerHTML = `<tr><td colspan="5" style="padding: 20px; text-align: center; color: red;">データの取得に失敗しました。</td></tr>`;
+            }
+        });
+
+        // 💡 🚀 新設：Firebaseから特定の注文データを削除する関数
+       async function deleteOrder(id) {
+    if (confirm("この注文データを完全に削除してもよろしいですか？")) {
+        try {
+            // Firebaseからデータを削除（画面からは自動でスッと消えます）
+            await deleteDoc(doc(db, "orders", id));
+            // ❌ alert("削除しました。");  ← この行を削除しました！
+        } catch (error) {
+            console.error("削除エラー:", error);
+            alert("削除に失敗しました。");
         }
-    });
+    }
+}
     </script>
 </body>
 </html>
