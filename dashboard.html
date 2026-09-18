@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ja">
+    <head>
+        <meta charset="UTF-8">
+    <title>管理者ダッシュボード</title>
+    <link rel="stylesheet" href="style.css">
+    </head>
+<body>
+    <header>
+    <h1 class="title">管理者ダッシュボード</h1>
+    <nav class="nav">
+        <ul class="menu-group">
+        <li class="menu-item"><a href="index.html">ホーム</a></li>
+        </ul>
+    </nav>
+    </header>
+
+<body class="dashboard-body">
+
+    <!-- サイドナビゲーション -->
+    <aside class="sidebar">
+        <div class="sidebar-brand">サイト管理システム</div>
+        <nav class="sidebar-menu">
+            <a href="#" class="active">📊 ダッシュボード</a>
+            <a href="#">📝 記事・コンテンツ管理</a>
+            <a href="#">⚙️ 設定</a>
+        </nav>
+        <button id="logoutBtn" class="btn-logout">🔓 ログアウト</button>
+    </aside>
+
+    <!-- メインコンテンツ -->
+    <main class="main-content">
+        <header class="main-header">
+            <h2>ダッシュボード</h2>
+            <div class="user-info">ようこそ、<span id="adminName">管理者</span>様</div>
+        </header>
+ <section class="content-body">
+            <!-- 📊 ここに訪問者数を表示するカードを追加しました！ -->
+            <div class="card-analytics" style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); width: 250px;">
+                <h3 style="margin-top: 0; color: #555;">👀 総訪問者数</h3>
+                <p style="font-size: 32px; font-weight: bold; margin: 10px 0 0 0; color: #333;">
+                    <span id="viewCount">読み込み中...</span> 人
+                </p>
+            </div>
+        </section>
+    </main>
+
+  
+<script type="module">
+    // 1. FirebaseとFirestoreの機能を正しくインポート
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+        import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+
+        // 2. あなたのFirebase設定
+        const firebaseConfig = {
+            apiKey: "AIzaSyBtLHgM6RzCU_grTElSqLCmsaRu4rVe-4o", 
+            authDomain: "://firebaseapp.com", 
+            projectId: "koubai-7b6a6", 
+            storageBucket: "koubai-7b6a6.firebasetorage.app", 
+            messagingSenderId: "934504714342", 
+            appId: "1:934504714342:web:e160ada63fcfcd906c5da7"
+        };
+
+        // 3. 初期化
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+         const docRef = doc(db, "analytics", "counter");
+
+    // onSnapshot を使うと、データベースの数字が変わった瞬間にこの中身が自動で何回でも実行されます
+    onSnapshot(docRef, (docSnap) => {
+        if (docSnap.exists() && docSnap.data().views !== undefined) {
+            // ページを更新しなくても、自動的にここの数字が書き換わります！
+            document.getElementById("viewCount").textContent = docSnap.data().views;
+        } else {
+            document.getElementById("viewCount").textContent = "0";
+        }
+    }, (error) => {
+        console.error("リアルタイムアクセスの監視に失敗しました:", error);
+        document.getElementById("viewCount").textContent = "エラー";
+    });
+    </script>
+</body>
+</html>

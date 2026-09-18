@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>札幌国際情報高校購買予約サイト</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -44,6 +44,39 @@
     <p>札幌国際情報高校30期理数工学科</p>
     </div>
 </footer>
+
+<script type="module">
+  import { initializeApp } from "https://gstatic.com";
+  // 1. 「firestore」から必要な機能（getFirestore, doc, setDoc, increment）を読み込む
+  import { getFirestore, doc, setDoc, increment } from "https://gstatic.com";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBtLHgM6RzCU_grTElSqLCmsaRu4rVe-4o", 
+    authDomain: "://firebaseapp.com", 
+    projectId: "koubai-7b6a6", 
+    storageBucket: "koubai-7b6a6.firebasetorage.app", 
+    messagingSenderId: "934504714342", 
+    appId: "1:934504714342:web:e160ada63fcfcd906c5da7"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  
+  // 2. データベース（Firestore）を初期化
+  const db = getFirestore(app);
+
+  // 3. ページが開かれたら自動でカウンターを 「1」 増やす
+  // （「counter」という名前のデータを作成し、その中の「views」をプラス1します）
+  setDoc(doc(db, "analytics", "counter"), {
+    views: increment(1)
+  }, { merge: true })
+  .then(() => {
+    console.log("アクセス数をカウントしました！");
+  })
+  .catch((error) => {
+    console.error("カウントエラー:", error);
+  });
+</script>
+
 </body>
 
 

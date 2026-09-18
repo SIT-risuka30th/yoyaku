@@ -24,7 +24,50 @@
         <p id="errorMessage" class="error"></p>
     </div>
 
-    <!-- ここにFirebaseなどのスクリプト、および独自のJSを読み込みます -->
-    <script type="module" src="tamesi.js"></script>
+
+    <script type="module">
+
+     import{initializeApp}from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+     import{getAuth,signInWithEmailAndPassword}from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+     import{getAnalytics}from "https://www.gstatic.com/firebasejs/11.0.0/firebase-analytics.js";
+        // あなたのFirebase設定（ここはご自身のものに書き換えてください）
+      const firebaseConfig = {
+     apiKey: "AIzaSyBtLHgM6RzCU_grTElSqLCmsaRu4rVe-4o", 
+      authDomain: "koubai-7b6a6.firebaseapp.com", 
+      projectId: "koubai-7b6a6", 
+      storageBucket: "koubai-7b6a6.firebasetorage.app", 
+      messagingSenderId: "934504714342", 
+      appId: "1:934504714342:web:e160ada63fcfcd906c5da7", 
+      measurementId: "G-57V67C28RK"
+     };
+
+     const app = initializeApp(firebaseConfig);
+     const auth = getAuth(app);
+     const analytics = getAnalytics(app);
+
+     
+
+        // ログインフォームの処理
+        const loginForm = document.getElementById("loginForm");
+        if (loginForm) {
+            loginForm.addEventListener("submit", (e) => {
+                e.preventDefault();
+
+                const email = document.getElementById("email").value;
+                const password = document.getElementById("password").value;
+
+                // ログインチェックを実行
+               signInWithEmailAndPassword(auth,email,password)
+                    .then((userCredential) => {
+                        alert("ログインに成功しました！");
+                        window.location.href = "dashboard.html"; // ダッシュボードへ移動
+                    })
+                    .catch((error) => {
+                        console.error("エラーコード:", error.code);
+                        document.getElementById("errorMessage").textContent = "IDまたはパスワードが違います。";
+                    });
+            });
+        }
+    </script>
 </body>
 </html>
