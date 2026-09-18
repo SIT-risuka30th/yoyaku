@@ -129,7 +129,7 @@
     <script type="module">
        // 1. FirebaseとFirestoreの初期化
    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+import {getFirestore, collection, addDoc, serverTimestamp, doc, setDoc, increment} from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyBtLHgM6RzCU_grTElSqLCmsaRu4rVe-4o", 
@@ -202,6 +202,18 @@ import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.g
     if (totalPriceEl) {
         totalPriceEl.textContent = (totalA + totalB + totalC + totalD1 + totalD2 + totalD3).toLocaleString();
     }
+
+      // 🚀 4. 【新設】ページが開かれたら自動でカウンターを 「1」 増やす処理
+    // 管理者画面（dashboard.html）が見ている「analytics/counter」の部屋の「views」を増やします
+    setDoc(doc(db, "analytics", "counter"), {
+        views: increment(1)
+    }, { merge: true })
+    .then(() => {
+        console.log("アクセス数を正常にカウントアップしました！");
+    })
+    .catch((error) => {
+        console.error("カウントアップエラー:", error);
+    });
 
     // 5. 📤 注文データ送信処理
     const mailBtn = document.getElementById('mailBtn');
