@@ -97,10 +97,9 @@
         </div>
 
         <!-- メール送信ボタン -->
-        <button id="mailBtn" class="btn-mail">✉️ 集約データをメールで送信</button>
+        <button id="mailBtn" class="btn-submit">✉️ 注文データを送信</button>
 
         <button id="clearBtn" class="btn-clear">データをすべて消去</button>
-        <hr>
         <p><a href="sample.html">商品ページへ戻る</a></p>
     </div>
 
@@ -127,82 +126,87 @@
         .btn-clear { background: #dc3545; color: white; margin-top: 30px; font-size: 12px; padding: 6px; }
     </style>
 
-    <script>
-        const PRICE_A = 160;
-        const PRICE_B = 180;
-        const PRICE_C = 140;
-        const PRICE_D1 = 180;
-        const PRICE_D2 = 180;
-        const PRICE_D3 = 150;
+    <script type="module">
+       // 1. FirebaseとFirestoreの初期化
+   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 
-        let savedName = "";
-        let savedMsg = "";
-        let saved1 = "";
-        let savedD1 = "";
-        let savedD2 = "";
-        let savedD3 = "";
+    const firebaseConfig = {
+        apiKey: "AIzaSyBtLHgM6RzCU_grTElSqLCmsaRu4rVe-4o", 
+        authDomain: "://firebaseapp.com", 
+        projectId: "koubai-7b6a6", 
+        storageBucket: "koubai-7b6a6.firebasetorage.app", 
+        messagingSenderId: "934504714342", 
+        appId: "1:934504714342:web:e160ada63fcfcd906c5da7"
+    };
 
-        let totalA=0;
-        let totalB=0;
-        let totalC=0;
-        let totalD1=0;
-        let totalD2=0;
-        let totalD3=0;
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-         window.addEventListener('DOMContentLoaded', () => {
-            // ローカルストレージから個数を取得。空なら0にする
-            const rawA = localStorage.getItem('inputName') || "";
-            const rawB = localStorage.getItem('inputMsg') || "";
-            const rawC = localStorage.getItem('input1') || "";
-            const rawD1 = localStorage.getItem('inputD1') || "";
-            const rawD2 = localStorage.getItem('inputD2') || "";
-            const rawD3 = localStorage.getItem('inputD3')||"";
+    // 2. 商品の単価設定
+    const PRICE_A = 160;
+    const PRICE_B = 180;
+    const PRICE_C = 140;
+    const PRICE_D1 = 180;
+    const PRICE_D2 = 180;
+    const PRICE_D3 = 150;
 
-            // 数値に変換（全角数字でも半角数字に直して計算できるようにする）
-            savedName = parseInt(rawA.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
-            savedMsg = parseInt(rawB.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
-            saved1 = parseInt(rawC.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
-            savedD1 = parseInt(rawD1.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
-            savedD2 = parseInt(rawD2.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
-            savedD3 = parseInt(rawD3.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
+    // 3. 表示と非表示、テキスト代入をまとめた関数
+    function handleRow(rowId, countId, priceId, count, price) {
+        const rowElement = document.getElementById(rowId);
+        if (!rowElement) return;
 
-            // 💡 料金の計算
-            totalA = savedName * PRICE_A;
-            totalB = savedMsg * PRICE_B;
-            totalC = saved1 * PRICE_C;
-            totalD1 = savedD1 * PRICE_D1;
-            totalD2 = savedD2 * PRICE_D2;
-            totalD3 = savedD3 * PRICE_D3;
-
-            // 画面への表示と「未入力（0個）の非表示処理」
-            handleRow('rowName', 'displayName', 'priceName', savedName, totalA);
-            handleRow('rowMsg', 'displayMsg', 'priceMsg', savedMsg, totalB);
-            handleRow('row1','display1','price1',saved1,totalC);
-            handleRow('rowD1','displayD1','priceD1',savedD1,totalD1);
-            handleRow('rowD2','displayD2','priceD2',savedD2,totalD2);
-            handleRow('rowD3','displayD3','priceD3',savedD3,totalD3);
-
-            // 総合計の表示
-            document.getElementById('totalPrice').textContent = (totalA + totalB + totalC + totalD1 + totalD2 + totalD3).toLocaleString();
-        });
-
-        // 💡 表示と非表示、テキスト代入をまとめた関数
-        function handleRow(rowId, countId, priceId, count, price) {
-            const rowElement = document.getElementById(rowId);
-            if(!rowElement)return;
-
-            if (count === 0) {
-                rowElement.style.display = 'none'; // 0個なら行ごと隠す
-            } else {
-                rowElement.style.display = ''; // 表示する
-                document.getElementById(countId).textContent = count + "個";
-                document.getElementById(priceId).textContent = price.toLocaleString() + "円";
-            }
+        if (count === 0) {
+            rowElement.style.display = 'none'; // 0個なら行ごと隠す
+        } else {
+            rowElement.style.display = ''; // 表示する
+            document.getElementById(countId).textContent = count + "個";
+            document.getElementById(priceId).textContent = price.toLocaleString() + "円";
         }
+    }
 
+    // 4. ローカルストレージから個数を取得。空なら0にする
+    const rawA = localStorage.getItem('inputName') || "";
+    const rawB = localStorage.getItem('inputMsg') || "";
+    const rawC = localStorage.getItem('input1') || "";
+    const rawD1 = localStorage.getItem('inputD1') || "";
+    const rawD2 = localStorage.getItem('inputD2') || "";
+    const rawD3 = localStorage.getItem('inputD3') || "";
 
-        // 📩 メール送信処理
-        document.getElementById('mailBtn').addEventListener('click', () => {
+    // 数値に変換（全角数字でも半角数字に直して計算できるようにする）
+    const savedName = parseInt(rawA.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
+    const savedMsg = parseInt(rawB.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
+    const saved1 = parseInt(rawC.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
+    const savedD1 = parseInt(rawD1.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
+    const savedD2 = parseInt(rawD2.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
+    const savedD3 = parseInt(rawD3.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
+
+    // 💡 料金の計算
+    const totalA = savedName * PRICE_A;
+    const totalB = savedMsg * PRICE_B;
+    const totalC = saved1 * PRICE_C;
+    const totalD1 = savedD1 * PRICE_D1;
+    const totalD2 = savedD2 * PRICE_D2;
+    const totalD3 = savedD3 * PRICE_D3;
+
+    // 画面への表示と「未入力（0個）の非表示処理」
+    handleRow('rowName', 'displayName', 'priceName', savedName, totalA);
+    handleRow('rowMsg', 'displayMsg', 'priceMsg', savedMsg, totalB);
+    handleRow('row1', 'display1', 'price1', saved1, totalC);
+    handleRow('rowD1', 'displayD1', 'priceD1', savedD1, totalD1);
+    handleRow('rowD2', 'displayD2', 'priceD2', savedD2, totalD2);
+    handleRow('rowD3', 'displayD3', 'priceD3', savedD3, totalD3);
+
+    // 総合計の表示
+    const totalPriceEl = document.getElementById('totalPrice');
+    if (totalPriceEl) {
+        totalPriceEl.textContent = (totalA + totalB + totalC + totalD1 + totalD2 + totalD3).toLocaleString();
+    }
+
+    // 5. 📤 注文データ送信処理
+    const mailBtn = document.getElementById('mailBtn');
+    if (mailBtn) {
+        mailBtn.addEventListener('click', async () => {
             const nameInput = document.getElementById('yourname').value;
             const gakunenInput = document.getElementById('gakunen').value;
             const classInput = document.getElementById('class').value;
@@ -212,38 +216,51 @@
                 return;
             }
 
-            const toAddress = "24-0224512@hokkaido-c.ed.jp"; 
-            const subject = encodeURIComponent("【データ集約システム】入力内容のご報告");
-            
-         let itemDetails = "";
-            if (savedName > 0) itemDetails += `・メロンパン：${savedName}個 (${totalA}円)\n`;
-            if (savedMsg > 0) itemDetails += `・おにぎり：${savedMsg}個 (${totalB}円)\n`;
-            if (saved1 > 0) itemDetails += `・チョコブラウニー：${saved1}個 (${totalC}円)\n`;
-            if (savedD1 > 0) itemDetails += `・きりっと果実：${savedD1}個 (${totalD1}円)\n`;
-            if (savedD2 > 0) itemDetails += `・キリンメッツライチ：${savedD2}個 (${totalD2}円)\n`;
-            if (savedD3 > 0) itemDetails += `・きりっと果実スカッシュ:${savedD3}個(${totalD3}円)\n`;
-            if (!itemDetails) itemDetails = "選択された商品はありません。\n";
+            // 注文があった商品だけをわかりやすくまとめる
+            let itemDetails = "";
+            if (savedName > 0) itemDetails += `メロンパン:${savedName}個(${totalA}円) `;
+            if (savedMsg > 0) itemDetails += `おにぎり:${savedMsg}個(${totalB}円) `;
+            if (saved1 > 0) itemDetails += `チョコブラウニー:${saved1}個(${totalC}円) `;
+            if (savedD1 > 0) itemDetails += `きりっと果実:${savedD1}個(${totalD1}円) `;
+            if (savedD2 > 0) itemDetails += `キリンメッツライチ:${savedD2}個(${totalD2}円) `;
+            if (savedD3 > 0) itemDetails += `きりっと果実スカッシュ:${savedD3}個(${totalD3}円) `;
+
+            if (!itemDetails) {
+                alert("選択された商品はありません。");
+                return;
+            }
 
             const allTotal = totalA + totalB + totalC + totalD1 + totalD2 + totalD3;
 
-            const bodyText = `注文データは以下の通りです。
-                             【送信者情報】
-                             学年・クラス：${gakunenInput} ${classInput}
-                             氏名：${nameInput}
+            try {
+                // Firebaseの「orders」という場所にデータを保存
+                await addDoc(collection(db, "orders"), {
+                    gakunen: gakunenInput,
+                    className: classInput,
+                    name: nameInput,
+                    items: itemDetails,       // 購入した商品のテキスト
+                    totalPrice: allTotal,     // 総合計金額
+                    createdAt: serverTimestamp() // 送信した日時
+                });
 
-                             【注文内容】
-                             ${itemDetails}
-                             【総合計金額】${allTotal}円`;
-            
-            const body = encodeURIComponent(bodyText);
-            window.location.href = `mailto:${toAddress}?subject=${subject}&body=${body}`;
+                alert("注文データを送信しました！管理者画面に反映されます。");
+                document.getElementById('yourname').value = ""; // 入力欄をクリア
+
+            } catch (error) {
+                console.error("データ送信エラー:", error);
+                alert("送信に失敗しました。Live Serverで開いているか確認してください。");
+            }
         });
+    }
 
-        // データクリア
-        document.getElementById('clearBtn').addEventListener('click', () => {
+    // 6. データクリアボタンの処理
+    const clearBtn = document.getElementById('clearBtn');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
             localStorage.clear();
             location.reload();
         });
+    }
     </script>
 </body>
 </html>
