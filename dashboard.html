@@ -30,10 +30,7 @@
 
     <!-- メインコンテンツ -->
     <main class="main-content">
-        <header class="main-header">
-            <h2>ダッシュボード</h2>
-            <div class="user-info">ようこそ、<span id="adminName">管理者</span>様</div>
-        </header>
+      
  <section class="content-body">
             <!-- 📊 ここに訪問者数を表示するカードを追加しました！ -->
             <div class="card-analytics" style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); width: 250px;">
@@ -42,42 +39,113 @@
                     <span id="viewCount">読み込み中...</span> 人
                 </p>
             </div>
-        </section>
+      
+
+        <!-- dashboard.html の section 内に追加する表（テーブル） -->
+  <div class="card-orders" style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); width: 100%; max-width: 900px;">
+        <h3 style="margin-top: 0; color: #333;">📦 受信した注文一覧（リアルタイム）</h3>
+        <table style="width: 100%; border-collapse: collapse; margin-top: 15px; text-align: left;">
+            <thead>
+                <tr style="background: #f5f5f5; border-bottom: 2px solid #ddd;">
+                    <th style="padding: 12px 10px;">学年・クラス</th>
+                    <th style="padding: 12px 10px;">氏名</th>
+                    <th style="padding: 12px 10px;">注文内容</th>
+                    <th style="padding: 12px 10px;">合計金額</th>
+                </tr>
+            </thead>
+            <tbody id="orderTableBody">
+                <tr>
+                    <td colspan="4" style="padding: 20px; text-align: center; color: #999;">注文データを待機中...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+      </section>
     </main>
 
   
-<script type="module">
-    // 1. FirebaseとFirestoreの機能を正しくインポート
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-        import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+  <script type="module">
+   // 1. Firebaseの必要な機能をインポート
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+     import { getFirestore, doc, onSnapshot, collection, query } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 
-        // 2. あなたのFirebase設定
-        const firebaseConfig = {
-            apiKey: "AIzaSyBtLHgM6RzCU_grTElSqLCmsaRu4rVe-4o", 
-            authDomain: "://firebaseapp.com", 
-            projectId: "koubai-7b6a6", 
-            storageBucket: "koubai-7b6a6.firebasetorage.app", 
-            messagingSenderId: "934504714342", 
-            appId: "1:934504714342:web:e160ada63fcfcd906c5da7"
-        };
+    // 2. あなたのFirebase設定
+    const firebaseConfig = {
+        apiKey: "AIzaSyBtLHgM6RzCU_grTElSqLCmsaRu4rVe-4o", 
+        authDomain: "://firebaseapp.com", 
+        projectId: "koubai-7b6a6", 
+        storageBucket: "koubai-7b6a6.firebasetorage.app", 
+        messagingSenderId: "934504714342", 
+        appId: "1:934504714342:web:e160ada63fcfcd906c5da7"
+    };
 
-        // 3. 初期化
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+    // 3. 初期化
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-         const docRef = doc(db, "analytics", "counter");
+    // --- 📊 ① アクセスカウンターのリアルタイム監視 ---
+    // エラーで止まらないよう単一ドキュメントを真っ先に監視します
+    onSnapshot(doc(db, "analytics", "counter"), (docSnap) => {
+        const viewCountEl = document.getElementById("viewCount");
+        if (!viewCountEl) return;
 
-    // onSnapshot を使うと、データベースの数字が変わった瞬間にこの中身が自動で何回でも実行されます
-    onSnapshot(docRef, (docSnap) => {
         if (docSnap.exists() && docSnap.data().views !== undefined) {
-            // ページを更新しなくても、自動的にここの数字が書き換わります！
-            document.getElementById("viewCount").textContent = docSnap.data().views;
+            viewCountEl.textContent = docSnap.data().views;
         } else {
-            document.getElementById("viewCount").textContent = "0";
+            viewCountEl.textContent = "0";
         }
     }, (error) => {
-        console.error("リアルタイムアクセスの監視に失敗しました:", error);
-        document.getElementById("viewCount").textContent = "エラー";
+        console.error("アクセスカウンターエラー:", error);
+    });
+
+    // --- 📦 ② 注文データのリアルタイム監視 ---
+    // 🚨 エラーの原因だった orderBy("createdAt") を外し、最もシンプルなクエリにしました
+    const ordersQuery = query(collection(db, "orders"));
+
+    onSnapshot(ordersQuery, (querySnapshot) => {
+        const tableBody = document.getElementById("orderTableBody");
+        if (!tableBody) return;
+        
+        tableBody.innerHTML = ""; // 古い表示をクリア
+
+        if (querySnapshot.empty) {
+            tableBody.innerHTML = `<tr><td colspan="4" style="padding: 20px; text-align: center; color: #999;">まだ注文はありません。</td></tr>`;
+            return;
+        }
+
+        // 配列に一度入れて、最新順（JavaScript側で逆順にする）に表示します
+        const orderRows = [];
+
+        querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            
+            const gakunen = data.gakunen || "";
+            const className = data.className || "";
+            const name = data.name || "不明";
+            const items = data.items || "なし";
+            const totalPrice = data.totalPrice ? data.totalPrice.toLocaleString() + "円" : "0円";
+
+            const rowHTML = `
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 12px 10px; color: #555;">${gakunen} ${className}</td>
+                    <td style="padding: 12px 10px; font-weight: bold; color: #333;">${name}</td>
+                    <td style="padding: 12px 10px; color: #666; font-size: 14px; max-width: 400px; word-wrap: break-word;">${items}</td>
+                    <td style="padding: 12px 10px; font-weight: bold; color: #e67e22;">${totalPrice}</td>
+                </tr>
+            `;
+            orderRows.push(rowHTML);
+        });
+
+        // 💡 データベース側ではなく、画面側で新しい順（逆順）に並び替えて出力します
+        orderRows.reverse();
+        tableBody.innerHTML = orderRows.join("");
+
+    }, (error) => {
+        console.error("注文データの取得エラー:", error);
+        const tableBody = document.getElementById("orderTableBody");
+        if (tableBody) {
+            tableBody.innerHTML = `<tr><td colspan="4" style="padding: 20px; text-align: center; color: red;">データの取得に失敗しました。</td></tr>`;
+        }
     });
     </script>
 </body>
