@@ -18,7 +18,11 @@
     </nav>
     </header>
 
-
+<div style="margin: 40px 0 20px 0; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+    <span id="userInfo">確認中...</span>
+    <button id="loginBtn" style="background:#4285F4; color:white; border:none; padding:5px 10px; border-radius:3px; cursor:pointer; display:none;">Googleでログイン</button>
+    <button id="logoutBtn" style="background:#999; color:white; border:none; padding:5px 10px; border-radius:3px; cursor:pointer; display:none;">ログアウト</button>
+</div>
     
     <div class="container">
         <h2>購入情報</h2>
@@ -103,11 +107,7 @@
         <p><a href="sample.html">商品ページへ戻る</a></p>
     </div>
 
-<div style="margin: 20px 0; padding: 10px; background: #f8f9fa; border-radius: 5px;">
-    <span id="userInfo">確認中...</span>
-    <button id="loginBtn" style="background:#4285F4; color:white; border:none; padding:5px 10px; border-radius:3px; cursor:pointer; display:none;">Googleでログイン</button>
-    <button id="logoutBtn" style="background:#999; color:white; border:none; padding:5px 10px; border-radius:3px; cursor:pointer; display:none;">ログアウト</button>
-</div>
+
 
 <!-- 💡 本人が自分の注文履歴を確認できるエリア（注文完了後などに確認できます） -->
 <div style="margin-top: 30px;">
@@ -292,7 +292,7 @@
     const rawD3 = localStorage.getItem('inputD3') || "";
 
     const savedName = parseInt(rawA.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
-    const savedMsg = parseInt(rawB.replace(/[０-9]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
+    const savedMsg = parseInt(rawB.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
     const saved1 = parseInt(rawC.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
     const savedD1 = parseInt(rawD1.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
     const savedD2 = parseInt(rawD2.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
