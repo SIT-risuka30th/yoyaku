@@ -150,17 +150,43 @@ onSnapshot(ordersQuery, (querySnapshot) => {
             });
         }
         // ② 音を鳴らす（ブラウザ標準のピピッという電子音を合成して鳴らします。音声ファイル不要です）
+               // ② 音を鳴らす（気づきやすい「ピピピッ！ピピピッ！」という2連音に変更）
         try {
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const oscillator = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-            oscillator.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-            oscillator.type = 'sine';
-            oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // 高い音
-            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            oscillator.start();
-            oscillator.stop(audioCtx.currentTime + 0.15); // 0.15秒だけ鳴らす
+            
+            // 音を鳴らす共通の関数
+            const playTone = (startTime, duration, frequency) => {
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(frequency, startTime);
+                
+                // 音の始まりと終わりを少し滑らかにしてブツブツ音を防ぐ
+                gainNode.gain.setValueAtTime(0, startTime);
+                gainNode.gain.linearRampToValueAtTime(0.15, startTime + 0.02); // 少し音量をアップ
+                gainNode.gain.setValueAtTime(0.15, startTime + duration - 0.02);
+                gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
+                
+                oscillator.start(startTime);
+                oscillator.stop(startTime + duration);
+            };
+
+            const now = audioCtx.currentTime;
+            
+            // 1回目の「ピピピッ」（少し高めの音を3回連続）
+            playTone(now, 0.08, 987.77);       // シ（B5）
+            playTone(now + 0.1, 0.08, 987.77);
+            playTone(now + 0.2, 0.08, 1318.51); // ド（E6）
+
+            // 2回目の「ピピピッ」（少し間を空けてもう一度）
+            playTone(now + 0.45, 0.08, 987.77);
+            playTone(now + 0.55, 0.08, 987.77);
+            playTone(now + 0.65, 0.08, 1318.51);
+
         } catch (e) {
             console.error("オーディオ再生エラー:", e);
         }
