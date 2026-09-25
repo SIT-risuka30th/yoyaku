@@ -103,6 +103,19 @@
         <p><a href="sample.html">商品ページへ戻る</a></p>
     </div>
 
+<div style="margin: 20px 0; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+    <span id="userInfo">確認中...</span>
+    <button id="loginBtn" style="background:#4285F4; color:white; border:none; padding:5px 10px; border-radius:3px; cursor:pointer; display:none;">Googleでログイン</button>
+    <button id="logoutBtn" style="background:#999; color:white; border:none; padding:5px 10px; border-radius:3px; cursor:pointer; display:none;">ログアウト</button>
+</div>
+
+<!-- 💡 本人が自分の注文履歴を確認できるエリア（注文完了後などに確認できます） -->
+<div style="margin-top: 30px;">
+    <h3>あなたの注文履歴</h3>
+    <ul id="myOrderList" style="background: #fff; padding: 15px; border: 1px solid #ddd; border-radius: 5px; list-style: none;">
+        <li>ログインすると履歴が表示されます。</li>
+    </ul>
+</div>
    
     <style>
         body { font-family: sans-serif; padding: 20px; background: #fafafa; }
@@ -128,8 +141,12 @@
 
     <script type="module">
        // 1. FirebaseとFirestoreの初期化
-   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-import {getFirestore, collection, addDoc, serverTimestamp, doc, setDoc, increment} from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+    import {getFirestore, collection, addDoc, serverTimestamp, doc, setDoc, increment, getDoc, query, where, onSnapshot} from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+    import {getDatabase, ref, set, push, onDisconnect } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut} from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js"
+
+
 
     const firebaseConfig = {
         apiKey: "AIzaSyBtLHgM6RzCU_grTElSqLCmsaRu4rVe-4o", 
@@ -142,6 +159,107 @@ import {getFirestore, collection, addDoc, serverTimestamp, doc, setDoc, incremen
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
+    const rtdb = getDatabase(app);
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
+
+    let currentUser = null; 
+    let myOrdersListener = null;
+   function trackPresence() {
+        const onlineUsersRef = ref(rtdb, 'online_users');
+        const myUserRef = push(onlineUsersRef);
+        set(myUserRef, true);
+        onDisconnect(myUserRef).remove();
+    }
+    trackPresence();
+
+    // --- 📅 ② 今日の訪問者数をカウントアップする機能 ---
+    async function countTodayView() {
+        if (sessionStorage.getItem('counted_today')) return;
+        const today = new Date().toISOString().split('T')[0]; // "2026-09-25" 形式
+        const todayDocRef = doc(db, "analytics", today);
+        try {
+            const docSnap = await getDoc(todayDocRef);
+            if (docSnap.exists()) {
+                await updateDoc(todayDocRef, { views: increment(1) });
+            } else {
+                await setDoc(todayDocRef, { views: 1 });
+            }
+            sessionStorage.setItem('counted_today', 'true');
+        } catch (error) {
+            console.error("今日の訪問者数カウントアップエラー:", error);
+        }
+    }
+    countTodayView();
+
+    // --- 🔑 ③ Googleログイン・ログアウトの制御 & 自分の注文確認 ---
+    const loginBtn = document.getElementById("loginBtn");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const userInfoEl = document.getElementById("userInfo");
+
+    if (loginBtn) {
+        loginBtn.addEventListener("click", async () => {
+            try {
+                await signInWithPopup(auth, provider);
+            } catch (error) {
+                console.error("ログインエラー:", error);
+            }
+        });
+    }
+
+    if (logoutBtn) {
+        logoutBtn.addEventListener("click", () => {
+            signOut(auth);
+        });
+    }
+
+    // ユーザーのログイン状態を監視
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            currentUser = user;
+            if (loginBtn) loginBtn.style.display = "none";
+            if (logoutBtn) logoutBtn.style.display = "inline-block";
+            if (userInfoEl) userInfoEl.textContent = `${user.displayName}様 (${user.email})`;
+            
+            // 💡 ログインに成功したら、自分の注文履歴をリアルタイムで表示する
+            startMyOrdersListener(user.uid);
+        } else {
+            currentUser = null;
+            if (loginBtn) loginBtn.style.display = "inline-block";
+            if (logoutBtn) logoutBtn.style.display = "none";
+            if (userInfoEl) userInfoEl.textContent = "注文にはGoogleログインが必要です。";
+            
+            // ログアウト時は履歴をクリア
+            if (myOrdersListener) myOrdersListener(); // 監視を停止
+            const myOrderList = document.getElementById("myOrderList");
+            if (myOrderList) myOrderList.innerHTML = "<li>ログインすると履歴が表示されます。</li>";
+        }
+    });
+
+    // 💡 本人が自分の注文履歴だけをリアルタイム監視する関数
+    function startMyOrdersListener(uid) {
+        const myOrdersQuery = query(collection(db, "orders"), where("userId", "==", uid));
+        
+        myOrdersListener = onSnapshot(myOrdersQuery, (snapshot) => {
+            const myOrderList = document.getElementById("myOrderList");
+            if (!myOrderList) return;
+            
+            myOrderList.innerHTML = "";
+            if (snapshot.empty) {
+                myOrderList.innerHTML = "<li>まだ注文履歴はありません。</li>";
+                return;
+            }
+            
+            snapshot.forEach((orderDoc) => {
+                const data = orderDoc.data();
+                const li = document.createElement("li");
+                li.style.padding = "10px 0";
+                li.style.borderBottom = "1px solid #eee";
+                li.innerHTML = `<strong>注文内容:</strong> ${data.items} <br> <span style="color:#e67e22; font-weight:bold;">合計: ${data.totalPrice.toLocaleString()}円</span>`;
+                myOrderList.appendChild(li);
+            });
+        });
+    }
 
     // 2. 商品の単価設定
     const PRICE_A = 160;
@@ -157,15 +275,15 @@ import {getFirestore, collection, addDoc, serverTimestamp, doc, setDoc, incremen
         if (!rowElement) return;
 
         if (count === 0) {
-            rowElement.style.display = 'none'; // 0個なら行ごと隠す
+            rowElement.style.display = 'none';
         } else {
-            rowElement.style.display = ''; // 表示する
+            rowElement.style.display = '';
             document.getElementById(countId).textContent = count + "個";
             document.getElementById(priceId).textContent = price.toLocaleString() + "円";
         }
     }
 
-    // 4. ローカルストレージから個数を取得。空なら0にする
+    // 4. ローカルストレージから個数を取得
     const rawA = localStorage.getItem('inputName') || "";
     const rawB = localStorage.getItem('inputMsg') || "";
     const rawC = localStorage.getItem('input1') || "";
@@ -173,15 +291,13 @@ import {getFirestore, collection, addDoc, serverTimestamp, doc, setDoc, incremen
     const rawD2 = localStorage.getItem('inputD2') || "";
     const rawD3 = localStorage.getItem('inputD3') || "";
 
-    // 数値に変換（全角数字でも半角数字に直して計算できるようにする）
     const savedName = parseInt(rawA.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
-    const savedMsg = parseInt(rawB.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
+    const savedMsg = parseInt(rawB.replace(/[０-9]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
     const saved1 = parseInt(rawC.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
     const savedD1 = parseInt(rawD1.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
     const savedD2 = parseInt(rawD2.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
     const savedD3 = parseInt(rawD3.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
 
-    // 💡 料金の計算
     const totalA = savedName * PRICE_A;
     const totalB = savedMsg * PRICE_B;
     const totalC = saved1 * PRICE_C;
@@ -189,7 +305,6 @@ import {getFirestore, collection, addDoc, serverTimestamp, doc, setDoc, incremen
     const totalD2 = savedD2 * PRICE_D2;
     const totalD3 = savedD3 * PRICE_D3;
 
-    // 画面への表示と「未入力（0個）の非表示処理」
     handleRow('rowName', 'displayName', 'priceName', savedName, totalA);
     handleRow('rowMsg', 'displayMsg', 'priceMsg', savedMsg, totalB);
     handleRow('row1', 'display1', 'price1', saved1, totalC);
@@ -197,28 +312,21 @@ import {getFirestore, collection, addDoc, serverTimestamp, doc, setDoc, incremen
     handleRow('rowD2', 'displayD2', 'priceD2', savedD2, totalD2);
     handleRow('rowD3', 'displayD3', 'priceD3', savedD3, totalD3);
 
-    // 総合計の表示
     const totalPriceEl = document.getElementById('totalPrice');
     if (totalPriceEl) {
         totalPriceEl.textContent = (totalA + totalB + totalC + totalD1 + totalD2 + totalD3).toLocaleString();
     }
 
-      // 🚀 4. 【新設】ページが開かれたら自動でカウンターを 「1」 増やす処理
-    // 管理者画面（dashboard.html）が見ている「analytics/counter」の部屋の「views」を増やします
-    setDoc(doc(db, "analytics", "counter"), {
-        views: increment(1)
-    }, { merge: true })
-    .then(() => {
-        console.log("アクセス数を正常にカウントアップしました！");
-    })
-    .catch((error) => {
-        console.error("カウントアップエラー:", error);
-    });
-
-    // 5. 📤 注文データ送信処理
+    // 5. 📤 注文データ送信処理（Googleアカウント紐付け対応版）
     const mailBtn = document.getElementById('mailBtn');
     if (mailBtn) {
         mailBtn.addEventListener('click', async () => {
+            // 💡 ログインしていない場合は送信をブロックする
+            if (!currentUser) {
+                alert("注文するには、まずGoogleログインを完了してください。");
+                return;
+            }
+
             const nameInput = document.getElementById('yourname').value;
             const gakunenInput = document.getElementById('gakunen').value;
             const classInput = document.getElementById('class').value;
@@ -228,9 +336,8 @@ import {getFirestore, collection, addDoc, serverTimestamp, doc, setDoc, incremen
                 return;
             }
 
-            // 注文があった商品だけをわかりやすくまとめる
             let itemDetails = "";
-            if (savedName > 0) itemDetails += `メロンパン:${savedName}個(${totalA}円) `;
+            if (savedName > 0) itemDetails += `メ melonパン:${savedName}個(${totalA}円) `;
             if (savedMsg > 0) itemDetails += `おにぎり:${savedMsg}個(${totalB}円) `;
             if (saved1 > 0) itemDetails += `チョコブラウニー:${saved1}個(${totalC}円) `;
             if (savedD1 > 0) itemDetails += `きりっと果実:${savedD1}個(${totalD1}円) `;
@@ -245,22 +352,24 @@ import {getFirestore, collection, addDoc, serverTimestamp, doc, setDoc, incremen
             const allTotal = totalA + totalB + totalC + totalD1 + totalD2 + totalD3;
 
             try {
-                // Firebaseの「orders」という場所にデータを保存
+                // 💡 注文データに「userId」と「userEmail」を混ぜてFirestoreに送信
                 await addDoc(collection(db, "orders"), {
                     gakunen: gakunenInput,
                     className: classInput,
                     name: nameInput,
-                    items: itemDetails,       // 購入した商品のテキスト
-                    totalPrice: allTotal,     // 総合計金額
-                    createdAt: serverTimestamp() // 送信した日時
+                    items: itemDetails,       
+                    totalPrice: allTotal,     
+                    userId: currentUser.uid,       // 👈 追加（本人の履歴照会用）
+                    userEmail: currentUser.email,   // 👈 追加（管理者確認用）
+                    createdAt: serverTimestamp() 
                 });
 
-                alert("注文データを送信しました！管理者画面に反映されます。");
-                document.getElementById('yourname').value = ""; // 入力欄をクリア
+                alert("注文データを送信しました！管理者画面に反映され、下の注文履歴にも追加されます。");
+                document.getElementById('yourname').value = ""; 
 
             } catch (error) {
                 console.error("データ送信エラー:", error);
-                alert("送信に失敗しました。Live Serverで開いているか確認してください。");
+                alert("送信に失敗しました。");
             }
         });
     }
@@ -269,10 +378,7 @@ import {getFirestore, collection, addDoc, serverTimestamp, doc, setDoc, incremen
     const clearBtn = document.getElementById('clearBtn');
     if (clearBtn) {
         clearBtn.addEventListener('click', () => {
-            localStorage.clear();
-            location.reload();
-        });
-    }
-    </script>
+localStorage.clear();location.reload();});}
+</script>
 </body>
 </html>
