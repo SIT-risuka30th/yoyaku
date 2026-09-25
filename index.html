@@ -78,6 +78,38 @@ function trackPresence() {
 // 実行する
 trackPresence();
 
+import { getFirestore, doc, updateDoc, increment, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+
+const db = getFirestore(app); // 既存のdb初期化
+
+// --- 📅 【新設】今日の訪問者数をカウントアップする機能 ---
+async function countTodayView() {
+    // すでにこのタブ（セッション）でカウント済みの場合はスキップして二重カウントを防ぐ
+    if (sessionStorage.getItem('counted_today')) return;
+
+    // 今日の日付を取得 (例: "2026-09-25")
+    const today = new Date().toISOString().split('T')[0];
+    const todayDocRef = doc(db, "analytics", today);
+
+    try {
+        // 今日初めてのアクセスならドキュメントを作成、すでに存在すればviewsを+1する
+        const docSnap = await getDoc(todayDocRef);
+        if (docSnap.exists()) {
+            await updateDoc(todayDocRef, { views: increment(1) });
+        } else {
+            await setDoc(todayDocRef, { views: 1 });
+        }
+        
+        // カウント済みフラグをセッションに保存
+        sessionStorage.setItem('counted_today', 'true');
+    } catch (error) {
+        console.error("今日の訪問者数カウントアップエラー:", error);
+    }
+}
+
+// 実行する
+countTodayView();
+
 </script>
 
 </body>
