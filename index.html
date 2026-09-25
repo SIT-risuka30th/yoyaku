@@ -46,35 +46,38 @@
 </footer>
 
 <script type="module">
-  import { initializeApp } from "https://gstatic.com";
-  // 1. 「firestore」から必要な機能（getFirestore, doc, setDoc, increment）を読み込む
-  import { getFirestore, doc, setDoc, increment } from "https://gstatic.com";
+ // 既存のFirebaseインポートに以下を追加（Realtime Databaseの機能）
+import {initializeApp}from"https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+import { getDatabase, ref, set, push, onDisconnect } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyBtLHgM6RzCU_grTElSqLCmsaRu4rVe-4o", 
-    authDomain: "://firebaseapp.com", 
-    projectId: "koubai-7b6a6", 
-    storageBucket: "koubai-7b6a6.firebasetorage.app", 
-    messagingSenderId: "934504714342", 
-    appId: "1:934504714342:web:e160ada63fcfcd906c5da7"
-  };
+const firebaseConfig = {
+            apiKey: "AIzaSyBtLHgM6RzCU_grTElSqLCmsaRu4rVe-4o", 
+            authDomain: "://firebaseapp.com", 
+            projectId: "koubai-7b6a6", 
+            storageBucket: "koubai-7b6a6.firebasetorage.app", 
+            messagingSenderId: "934504714342", 
+            appId: "1:934504714342:web:e160ada63fcfcd906c5da7"
+        };
 
-  const app = initializeApp(firebaseConfig);
-  
-  // 2. データベース（Firestore）を初期化
-  const db = getFirestore(app);
+const app = initializeApp(firebaseConfig);
+const rtdb = getDatabase(app);
 
-  // 3. ページが開かれたら自動でカウンターを 「1」 増やす
-  // （「counter」という名前のデータを作成し、その中の「views」をプラス1します）
-  setDoc(doc(db, "analytics", "counter"), {
-    views: increment(1)
-  }, { merge: true })
-  .then(() => {
-    console.log("アクセス数をカウントしました！");
-  })
-  .catch((error) => {
-    console.error("カウントエラー:", error);
-  });
+// --- 🌐 オンライン滞在者の記録機能 ---
+function trackPresence() {
+    // ユーザーごとにランダムなユニークIDを発行して、しるしをつける
+    const onlineUsersRef = ref(rtdb, 'online_users');
+    const myUserRef = push(onlineUsersRef);
+
+    // 1. ページを開いたとき：データベースに「値＝true」で自分を追加
+    set(myUserRef, true);
+
+    // 2. ページを閉じたとき（タブを閉じる、通信切断など）：自動的に自分のデータを削除する予約
+    onDisconnect(myUserRef).remove();
+}
+
+// 実行する
+trackPresence();
+
 </script>
 
 </body>
