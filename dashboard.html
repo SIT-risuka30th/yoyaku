@@ -73,6 +73,14 @@
         const db = getFirestore(app);
         const rtdb = getDatabase(app);
 
+        if (Notification.permission === "default") {
+    Notification.requestPermission().then(permission => {
+        if (permission === "granted") {
+            console.log("通知が許可されました！");
+        }
+    });
+}
+
         const onlineUsersRef = ref(rtdb, 'online_users');
 onValue(onlineUsersRef, (snapshot) => {
     const currentOnlineEl = document.getElementById("currentOnlineCount");
@@ -104,20 +112,59 @@ onValue(onlineUsersRef, (snapshot) => {
 });
 
         // --- 📦 ② 注文データのリアルタイム監視 ---
-        const ordersQuery = query(collection(db, "orders"));
+       const ordersQuery = query(collection(db, "orders"));
 
-        onSnapshot(ordersQuery, (querySnapshot) => {
-            const tableBody = document.getElementById("orderTableBody");
-            if (!tableBody) return;
-            
-            tableBody.innerHTML = "";
+// 初回読み込みかどうかを判定するフラグ
+let isInitialLoad = true;
 
-            if (querySnapshot.empty) {
-                tableBody.innerHTML = `<tr><td colspan="5" style="padding: 20px; text-align: center; color: #999;">まだ注文はありません。</td></tr>`;
-                return;
-            }
+onSnapshot(ordersQuery, (querySnapshot) => {
+    const tableBody = document.getElementById("orderTableBody");
+    if (!tableBody) return;
+    
+    tableBody.innerHTML = "";
 
-            const orderRows = [];
+    if (querySnapshot.empty) {
+        tableBody.innerHTML = `<tr><td colspan="5" style="padding: 20px; text-align: center; color: #999;">まだ注文はありません。</td></tr>`;
+        isInitialLoad = false; // データが空でも初期読み込みは完了
+        return;
+    }
+
+    const orderRows = [];
+    let newOrderName = ""; // 新しい注文者の名前を一時保存する変数
+
+    querySnapshot.docChanges().forEach((change) => {
+        // 💡 画面を開いている間に、新しくデータが「追加(added)」された場合
+        if (change.type === "added" && !isInitialLoad) {
+            const data = change.doc.data();
+            newOrderName = data.name || "不明";
+        }
+    });
+
+    // 💡 新しい注文があれば通知を送る＆音を鳴らす
+    if (newOrderName) {
+        // ① デスクトップ通知を表示
+        if (Notification.permission === "granted") {
+            new Notification("🔔 新しい予約が届きました！", {
+                body: `${newOrderName} 様からの注文です。`,
+                icon: "https://flaticon.com" // お好きなアイコンURLに変えてもOK
+            });
+        }
+        // ② 音を鳴らす（ブラウザ標準のピピッという電子音を合成して鳴らします。音声ファイル不要です）
+        try {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // 高い音
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 0.15); // 0.15秒だけ鳴らす
+        } catch (e) {
+            console.error("オーディオ再生エラー:", e);
+        }
+    }
 
             querySnapshot.forEach((orderDoc) => {
                 const data = orderDoc.data();
