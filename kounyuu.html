@@ -318,10 +318,19 @@
     }
 
     // 5. 📤 注文データ送信処理（Googleアカウント紐付け対応版）
-    const mailBtn = document.getElementById('mailBtn');
+      const mailBtn = document.getElementById('mailBtn');
     if (mailBtn) {
         mailBtn.addEventListener('click', async () => {
-            // 💡 ログインしていない場合は送信をブロックする
+            // 💡 修正ポイント①：最初に合計金額を計算する
+            const allTotal = totalA + totalB + totalC + totalD1 + totalD2 + totalD3;
+
+            // 💡 修正ポイント②：合計金額が0円（何も選ばれていない）なら処理を中断する
+            if (allTotal === 0) {
+                alert("商品が選択されていません。個数を入力してください。");
+                return;
+            }
+
+            // ログインしていない場合は送信をブロックする
             if (!currentUser) {
                 alert("注文するには、まずGoogleログインを完了してください。");
                 return;
@@ -344,23 +353,22 @@
             if (savedD2 > 0) itemDetails += `キリンメッツライチ:${savedD2}個(${totalD2}円) `;
             if (savedD3 > 0) itemDetails += `きりっと果実スカッシュ:${savedD3}個(${totalD3}円) `;
 
+            // （※上のallTotalのチェックで弾かれるため、このif文は通らなくなりますが残しておいて大丈夫です）
             if (!itemDetails) {
                 alert("選択された商品はありません。");
                 return;
             }
 
-            const allTotal = totalA + totalB + totalC + totalD1 + totalD2 + totalD3;
-
             try {
-                // 💡 注文データに「userId」と「userEmail」を混ぜてFirestoreに送信
+                // 注文データに「userId」と「userEmail」を混ぜてFirestoreに送信
                 await addDoc(collection(db, "orders"), {
                     gakunen: gakunenInput,
                     className: classInput,
                     name: nameInput,
                     items: itemDetails,       
                     totalPrice: allTotal,     
-                    userId: currentUser.uid,       // 👈 追加（本人の履歴照会用）
-                    userEmail: currentUser.email,   // 👈 追加（管理者確認用）
+                    userId: currentUser.uid,       
+                    userEmail: currentUser.email,   
                     createdAt: serverTimestamp() 
                 });
 
@@ -373,7 +381,6 @@
             }
         });
     }
-
     // 6. データクリアボタンの処理
     const clearBtn = document.getElementById('clearBtn');
     if (clearBtn) {
