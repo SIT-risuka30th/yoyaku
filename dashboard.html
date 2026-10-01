@@ -4,6 +4,7 @@
         <meta charset="UTF-8">
     <title>管理者ダッシュボード</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="data:,">
     </head>
 <body>
     <header>
@@ -71,13 +72,24 @@
         const db = getFirestore(app);
         const rtdb = getDatabase(app);
 
-        if (Notification.permission === "default") {
-    Notification.requestPermission().then(permission => {
-        if (permission === "granted") {
-            console.log("通知が許可されました！");
+   let audioCtx = null;
+
+    // 画面が最初にクリックされたらAudioContextを生成・有効化する
+    window.addEventListener('click', () => {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        } else if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
         }
-    });
-}
+    }, { once: true }); // 最初の一回だけ実行
+
+    if (Notification.permission === "default") {
+        Notification.requestPermission().then(permission => {
+            if (permission === "granted") {
+                console.log("通知が許可されました！");
+            }
+        });
+    }
 
         const onlineUsersRef = ref(rtdb, 'online_users');
 onValue(onlineUsersRef, (snapshot) => {
@@ -112,119 +124,114 @@ onSnapshot(doc(db, "analytics", todayStr), (docSnap) => {
 });
 
         // --- 📦 ② 注文データのリアルタイム監視 ---
-       const ordersQuery = query(collection(db, "orders"));
+  const ordersQuery = query(collection(db, "orders"));
 
-// 初回読み込みかどうかを判定するフラグ
-let isInitialLoad = true;
+    // 初回読み込みかどうかを判定するフラグ
+    let isInitialLoad = true;
 
-onSnapshot(ordersQuery, (querySnapshot) => {
-    const tableBody = document.getElementById("orderTableBody");
-    if (!tableBody) return;
-    
-    tableBody.innerHTML = "";
+    onSnapshot(ordersQuery, (querySnapshot) => {
+        const tableBody = document.getElementById("orderTableBody");
+        if (!tableBody) return;
+        
+        tableBody.innerHTML = "";
 
-    if (querySnapshot.empty) {
-        tableBody.innerHTML = `<tr><td colspan="6" style="padding: 20px; text-align: center; color: #999;">まだ注文はありません。</td></tr>`;
-        isInitialLoad = false; // データが空でも初期読み込みは完了
-        return;
-    }
-
-    const orderRows = [];
-    let newOrderName = ""; // 新しい注文者の名前を一時保存する変数
-
-    querySnapshot.docChanges().forEach((change) => {
-        // 💡 画面を開いている間に、新しくデータが「追加(added)」された場合
-        if (change.type === "added" && !isInitialLoad) {
-            const data = change.doc.data();
-            newOrderName = data.name || "不明";
+        if (querySnapshot.empty) {
+            tableBody.innerHTML = `<tr><td colspan="6" style="padding: 20px; text-align: center; color: #999;">まだ注文はありません。</td></tr>`;
+            isInitialLoad = false; 
+            return;
         }
-    });
 
-    // 💡 新しい注文があれば通知を送る＆音を鳴らす
-    if (newOrderName) {
-        // ① デスクトップ通知を表示
-        if (Notification.permission === "granted") {
-            new Notification("🔔 新しい予約が届きました！", {
-                body: `${newOrderName} 様からの注文です。`,
-                icon: "https://flaticon.com" // お好きなアイコンURLに変えてもOK
-            });
+        const orderRows = [];
+        let newOrderName = ""; 
+
+        querySnapshot.docChanges().forEach((change) => {
+            if (change.type === "added" && !isInitialLoad) {
+                const data = change.doc.data();
+                newOrderName = data.name || "不明";
+            }
+        });
+
+        if (newOrderName) {
+            if (Notification.permission === "granted") {
+                new Notification("🔔 新しい予約が届きました！", {
+                    body: `${newOrderName} 様からの注文です。`,
+                    icon: "https://flaticon.com" 
+                });
+            }
+        
+            if (audioCtx) {
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                try {
+                    const playTone = (startTime, duration, frequency) => {
+                        const oscillator = audioCtx.createOscillator();
+                        const gainNode = audioCtx.createGain();
+                        
+                        oscillator.connect(gainNode);
+                        gainNode.connect(audioCtx.destination);
+                        
+                        oscillator.type = 'sine';
+                        oscillator.frequency.setValueAtTime(frequency, startTime);
+                        
+                        gainNode.gain.setValueAtTime(0, startTime);
+                        gainNode.gain.linearRampToValueAtTime(0.15, startTime + 0.02); 
+                        gainNode.gain.setValueAtTime(0.15, startTime + duration - 0.02);
+                        gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
+                        
+                        oscillator.start(startTime);
+                        oscillator.stop(startTime + duration);
+                    };
+
+                    const now = audioCtx.currentTime;
+                    
+                    playTone(now, 0.08, 987.77);       
+                    playTone(now + 0.1, 0.08, 987.77);
+                    playTone(now + 0.2, 0.08, 1318.51); 
+
+                    playTone(now + 0.45, 0.08, 987.77);
+                    playTone(now + 0.55, 0.08, 987.77);
+                    playTone(now + 0.65, 0.08, 1318.51);
+
+                } catch (e) {
+                    console.error("オーディオ再生エラー:", e);
+                }
+            }
         }
-        // ② 音を鳴らす（ブラウザ標準のピピッという電子音を合成して鳴らします。音声ファイル不要です）
-               // ② 音を鳴らす（気づきやすい「ピピピッ！ピピピッ！」という2連音に変更）
-        try {
-            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        querySnapshot.forEach((orderDoc) => {
+            const data = orderDoc.data();
+            const docId = orderDoc.id; 
             
-            // 音を鳴らす共通の関数
-            const playTone = (startTime, duration, frequency) => {
-                const oscillator = audioCtx.createOscillator();
-                const gainNode = audioCtx.createGain();
-                
-                oscillator.connect(gainNode);
-                gainNode.connect(audioCtx.destination);
-                
-                oscillator.type = 'sine';
-                oscillator.frequency.setValueAtTime(frequency, startTime);
-                
-                // 音の始まりと終わりを少し滑らかにしてブツブツ音を防ぐ
-                gainNode.gain.setValueAtTime(0, startTime);
-                gainNode.gain.linearRampToValueAtTime(0.15, startTime + 0.02); // 少し音量をアップ
-                gainNode.gain.setValueAtTime(0.15, startTime + duration - 0.02);
-                gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
-                
-                oscillator.start(startTime);
-                oscillator.stop(startTime + duration);
-            };
+            const gakunen = data.gakunen || "";
+            const className = data.className || "";
+            const number = data.number || "-";
+            const name = data.name || "不明";
+            const items = data.items || "なし";
+            const totalPrice = data.totalPrice ? data.totalPrice.toLocaleString() + "円" : "0円";
 
-            const now = audioCtx.currentTime;
-            
-            // 1回目の「ピピピッ」（少し高めの音を3回連続）
-            playTone(now, 0.08, 987.77);       // シ（B5）
-            playTone(now + 0.1, 0.08, 987.77);
-            playTone(now + 0.2, 0.08, 1318.51); // ド（E6）
+            const userKey = data.userId || `${gakunen}-${className}-${number}`;
+          
+            const rowHTML = `
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 12px 10px; color: #555;">${gakunen} ${className}</td>
+                    <td style="padding: 12px 10px; color: #555;">${number} 番</td>
+                    <td style="padding: 12px 10px; font-weight: bold; color: #333;">${name}</td>
+                    <td style="padding: 12px 10px; color: #666; font-size: 14px; max-width: 400px; word-wrap: break-word;">${items}</td>
+                    <td style="padding: 12px 10px; font-weight: bold; color: #e67e22;">${totalPrice}</td>
+                    <td style="padding: 12px 10px;">
+                        <button class="btn-reset-pin" data-userkey="${userKey}" data-name="${name}" style="background: #f1c40f; color: #333; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-right: 5px;">🔑 リセット</button>
+                        <button class="btn-delete" data-id="${docId}" style="background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">削除</button>
+                    </td>
+                </tr>
+            `;
+            orderRows.push(rowHTML);
+        });
 
-            // 2回目の「ピピピッ」（少し間を空けてもう一度）
-            playTone(now + 0.45, 0.08, 987.77);
-            playTone(now + 0.55, 0.08, 987.77);
-            playTone(now + 0.65, 0.08, 1318.51);
+        orderRows.reverse();
+        tableBody.innerHTML = orderRows.join("");
 
-        } catch (e) {
-            console.error("オーディオ再生エラー:", e);
-        }
-    }
-
-            querySnapshot.forEach((orderDoc) => {
-                const data = orderDoc.data();
-                const docId = orderDoc.id; // 💡 削除するために必要なデータのIDを取得します
-                
-                const gakunen = data.gakunen || "";
-                const className = data.className || "";
-                const number = data.number || "-";
-                const name = data.name || "不明";
-                const items = data.items || "なし";
-                const totalPrice = data.totalPrice ? data.totalPrice.toLocaleString() + "円" : "0円";
-
-                const userKey = data.userId || `${gakunen}-${className}-${number}`;
-              
-                const rowHTML = `
-                    <tr style="border-bottom: 1px solid #eee;">
-                        <td style="padding: 12px 10px; color: #555;">${gakunen} ${className}</td>
-                        <td style="padding: 12px 10px; color: #555;">${number} 番</td>
-                        <td style="padding: 12px 10px; font-weight: bold; color: #333;">${name}</td>
-                        <td style="padding: 12px 10px; color: #666; font-size: 14px; max-width: 400px; word-wrap: break-word;">${items}</td>
-                        <td style="padding: 12px 10px; font-weight: bold; color: #e67e22;">${totalPrice}</td>
-                        <td style="padding: 12px 10px;">
-                             <button class="btn-reset-pin" data-userkey="${userKey}" data-name="${name}" style="background: #f1c40f; color: #333; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-right: 5px;">🔑 リセット</button>
-                            <button class="btn-delete" data-id="${docId}" style="background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">削除</button>
-                        </td>
-                    </tr>
-                `;
-                orderRows.push(rowHTML);
-            });
-
-            // 画面側で新しい順（逆順）に並び替えて出力
-            orderRows.reverse();
-            tableBody.innerHTML = orderRows.join("");
-
+        // 削除ボタンのイベント設定
         const deleteButtons = tableBody.querySelectorAll('.btn-delete');
         deleteButtons.forEach(button => {
             button.addEventListener('click', async (e) => {
@@ -240,7 +247,7 @@ onSnapshot(ordersQuery, (querySnapshot) => {
             });
         });
 
-        // 💡 対策：同じく暗証番号リセット処理もこちらに直接記述します
+        // リセットボタンのイベント設定
         const resetButtons = tableBody.querySelectorAll('.btn-reset-pin');
         resetButtons.forEach(button => {
             button.addEventListener('click', async (e) => {
@@ -264,7 +271,6 @@ onSnapshot(ordersQuery, (querySnapshot) => {
         });
 
         isInitialLoad = false; 
-
     }, (error) => {
         console.error("注文データの取得エラー:", error);
         const tableBody = document.getElementById("orderTableBody");
@@ -272,7 +278,6 @@ onSnapshot(ordersQuery, (querySnapshot) => {
             tableBody.innerHTML = `<tr><td colspan="6" style="padding: 20px; text-align: center; color: red;">データの取得に失敗しました。</td></tr>`;
         }
     });
-
-    </script>
+</script>
 </body>
 </html>
