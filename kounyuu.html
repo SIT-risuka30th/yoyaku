@@ -18,11 +18,7 @@
     </nav>
     </header>
 
-<div style="margin: 40px 0 20px 0; padding: 10px; background: #f8f9fa; border-radius: 5px;">
-    <span id="userInfo">確認中...</span>
-    <button id="loginBtn" style="background:#4285F4; color:white; border:none; padding:5px 10px; border-radius:3px; cursor:pointer; display:none;">Googleでログイン</button>
-    <button id="logoutBtn" style="background:#999; color:white; border:none; padding:5px 10px; border-radius:3px; cursor:pointer; display:none;">ログアウト</button>
-</div>
+
     
     <div class="container">
         <h2>購入情報</h2>
@@ -109,14 +105,7 @@
 
 
 
-<!-- 💡 本人が自分の注文履歴を確認できるエリア（注文完了後などに確認できます） -->
-<div style="margin-top: 30px;">
-    <h3>あなたの注文履歴</h3>
-    <ul id="myOrderList" style="background: #fff; padding: 15px; border: 1px solid #ddd; border-radius: 5px; list-style: none;">
-        <li>ログインすると履歴が表示されます。</li>
-    </ul>
-</div>
-   
+
     <style>
         body { font-family: sans-serif; padding: 20px; background: #fafafa; }
         .container { max-width: 500px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin: 0 auto; }
@@ -142,9 +131,8 @@
     <script type="module">
        // 1. FirebaseとFirestoreの初期化
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-    import {getFirestore, collection, addDoc, serverTimestamp, doc, setDoc, increment, getDoc, query, where, onSnapshot} from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+    import {getFirestore, collection, addDoc, serverTimestamp, doc, setDoc, updateDoc, increment, getDoc, query, where, onSnapshot} from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
     import {getDatabase, ref, set, push, onDisconnect } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
-    import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut} from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js"
 
 
 
@@ -160,11 +148,12 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const rtdb = getDatabase(app);
-    const auth = getAuth(app);
-    const provider = new GoogleAuthProvider();
+  
 
-    let currentUser = null; 
     let myOrdersListener = null;
+
+
+
    function trackPresence() {
         const onlineUsersRef = ref(rtdb, 'online_users');
         const myUserRef = push(onlineUsersRef);
@@ -192,74 +181,8 @@
     }
     countTodayView();
 
-    // --- 🔑 ③ Googleログイン・ログアウトの制御 & 自分の注文確認 ---
-    const loginBtn = document.getElementById("loginBtn");
-    const logoutBtn = document.getElementById("logoutBtn");
-    const userInfoEl = document.getElementById("userInfo");
-
-    if (loginBtn) {
-        loginBtn.addEventListener("click", async () => {
-            try {
-                await signInWithPopup(auth, provider);
-            } catch (error) {
-                console.error("ログインエラー:", error);
-            }
-        });
-    }
-
-    if (logoutBtn) {
-        logoutBtn.addEventListener("click", () => {
-            signOut(auth);
-        });
-    }
-
-    // ユーザーのログイン状態を監視
-    onAuthStateChanged(auth, (user) => {
-        if (user) {
-            currentUser = user;
-            if (loginBtn) loginBtn.style.display = "none";
-            if (logoutBtn) logoutBtn.style.display = "inline-block";
-            if (userInfoEl) userInfoEl.textContent = `${user.displayName}様 (${user.email})`;
-            
-            // 💡 ログインに成功したら、自分の注文履歴をリアルタイムで表示する
-            startMyOrdersListener(user.uid);
-        } else {
-            currentUser = null;
-            if (loginBtn) loginBtn.style.display = "inline-block";
-            if (logoutBtn) logoutBtn.style.display = "none";
-            if (userInfoEl) userInfoEl.textContent = "注文にはGoogleログインが必要です。";
-            
-            // ログアウト時は履歴をクリア
-            if (myOrdersListener) myOrdersListener(); // 監視を停止
-            const myOrderList = document.getElementById("myOrderList");
-            if (myOrderList) myOrderList.innerHTML = "<li>ログインすると履歴が表示されます。</li>";
-        }
-    });
-
-    // 💡 本人が自分の注文履歴だけをリアルタイム監視する関数
-    function startMyOrdersListener(uid) {
-        const myOrdersQuery = query(collection(db, "orders"), where("userId", "==", uid));
-        
-        myOrdersListener = onSnapshot(myOrdersQuery, (snapshot) => {
-            const myOrderList = document.getElementById("myOrderList");
-            if (!myOrderList) return;
-            
-            myOrderList.innerHTML = "";
-            if (snapshot.empty) {
-                myOrderList.innerHTML = "<li>まだ注文履歴はありません。</li>";
-                return;
-            }
-            
-            snapshot.forEach((orderDoc) => {
-                const data = orderDoc.data();
-                const li = document.createElement("li");
-                li.style.padding = "10px 0";
-                li.style.borderBottom = "1px solid #eee";
-                li.innerHTML = `<strong>注文内容:</strong> ${data.items} <br> <span style="color:#e67e22; font-weight:bold;">合計: ${data.totalPrice.toLocaleString()}円</span>`;
-                myOrderList.appendChild(li);
-            });
-        });
-    }
+  
+   
 
     // 2. 商品の単価設定
     const PRICE_A = 160;
@@ -330,11 +253,7 @@
                 return;
             }
 
-            // ログインしていない場合は送信をブロックする
-            if (!currentUser) {
-                alert("注文するには、まずGoogleログインを完了してください。");
-                return;
-            }
+            
 
             const nameInput = document.getElementById('yourname').value;
             const gakunenInput = document.getElementById('gakunen').value;
@@ -346,12 +265,12 @@
             }
 
             let itemDetails = "";
-            if (savedName > 0) itemDetails += `メ melonパン:${savedName}個(${totalA}円) `;
-            if (savedMsg > 0) itemDetails += `おにぎり:${savedMsg}個(${totalB}円) `;
-            if (saved1 > 0) itemDetails += `チョコブラウニー:${saved1}個(${totalC}円) `;
-            if (savedD1 > 0) itemDetails += `きりっと果実:${savedD1}個(${totalD1}円) `;
-            if (savedD2 > 0) itemDetails += `キリンメッツライチ:${savedD2}個(${totalD2}円) `;
-            if (savedD3 > 0) itemDetails += `きりっと果実スカッシュ:${savedD3}個(${totalD3}円) `;
+            if (savedName > 0) itemDetails += `メロンパン:${savedName}個`;
+            if (savedMsg > 0) itemDetails += `おにぎり:${savedMsg}個 `;
+            if (saved1 > 0) itemDetails += `チョコブラウニー:${saved1}個`;
+            if (savedD1 > 0) itemDetails += `きりっと果実:${savedD1}個`;
+            if (savedD2 > 0) itemDetails += `キリンメッツライチ:${savedD2}個`;
+            if (savedD3 > 0) itemDetails += `きりっと果実スカッシュ:${savedD3}個`;
 
             // （※上のallTotalのチェックで弾かれるため、このif文は通らなくなりますが残しておいて大丈夫です）
             if (!itemDetails) {
@@ -360,19 +279,18 @@
             }
 
             try {
-                // 注文データに「userId」と「userEmail」を混ぜてFirestoreに送信
                 await addDoc(collection(db, "orders"), {
                     gakunen: gakunenInput,
                     className: classInput,
                     name: nameInput,
                     items: itemDetails,       
                     totalPrice: allTotal,     
-                    userId: currentUser.uid,       
-                    userEmail: currentUser.email,   
+                    userId: "guest_user",       
+                    userEmail: "guest@example.com",   
                     createdAt: serverTimestamp() 
                 });
 
-                alert("注文データを送信しました！管理者画面に反映され、下の注文履歴にも追加されます。");
+                alert("注文データを送信しました！購買でお待ちしています。");
                 document.getElementById('yourname').value = ""; 
 
             } catch (error) {
