@@ -96,6 +96,18 @@
             </p>
         </div>
 
+        <div class="form-group">
+    <label for="shusshkiNumber">出席番号:</label>
+    <input type="number" id="shusshkiNumber" placeholder="例: 15" min="1">
+</div>
+
+<div class="form-group">
+    <label for="userPin">暗証番号（自分で決める4桁）:</label>
+    <!-- 数字4桁の伏せ字入力欄 -->
+    <input type="password" id="userPin" placeholder="初回に決めた4桁の数字" maxlength="4" pattern="\d{4}">
+    <small style="color: gray; display: block;">※初めてこの番号を使う際に入力した番号が、あなた専用のパスワードになります。</small>
+</div>
+
         <!-- メール送信ボタン -->
         <button id="mailBtn" class="btn-submit">✉️ 注文データを送信</button>
 
@@ -241,69 +253,101 @@
     }
 
     // 5. 📤 注文データ送信処理（Googleアカウント紐付け対応版）
-      const mailBtn = document.getElementById('mailBtn');
+     const mailBtn = document.getElementById('mailBtn');
     if (mailBtn) {
         mailBtn.addEventListener('click', async () => {
-            // 💡 修正ポイント①：最初に合計金額を計算する
             const allTotal = totalA + totalB + totalC + totalD1 + totalD2 + totalD3;
 
-            // 💡 修正ポイント②：合計金額が0円（何も選ばれていない）なら処理を中断する
             if (allTotal === 0) {
                 alert("商品が選択されていません。個数を入力してください。");
                 return;
             }
 
-            
+            const nameInput = document.getElementById('yourname').value.trim();
+            const gakunenInput = document.getElementById('gakunen').value.trim();
+            const classInput = document.getElementById('class').value.trim();
+            const numberInput = document.getElementById('shusshkiNumber').value.trim(); 
+            const pinInput = document.getElementById('userPin').value.trim(); 
 
-            const nameInput = document.getElementById('yourname').value;
-            const gakunenInput = document.getElementById('gakunen').value;
-            const classInput = document.getElementById('class').value;
+            if (!gakunenInput || !classInput || !numberInput) {
+                alert("学年、クラス、出席番号を入力してください。");
+                return;
+            }
 
             if (!nameInput) {
                 alert("氏名を入力してください。");
                 return;
             }
 
-            let itemDetails = "";
-            if (savedName > 0) itemDetails += `メロンパン:${savedName}個`;
-            if (savedMsg > 0) itemDetails += `おにぎり:${savedMsg}個 `;
-            if (saved1 > 0) itemDetails += `チョコブラウニー:${saved1}個`;
-            if (savedD1 > 0) itemDetails += `きりっと果実:${savedD1}個`;
-            if (savedD2 > 0) itemDetails += `キリンメッツライチ:${savedD2}個`;
-            if (savedD3 > 0) itemDetails += `きりっと果実スカッシュ:${savedD3}個`;
-
-            // （※上のallTotalのチェックで弾かれるため、このif文は通らなくなりますが残しておいて大丈夫です）
-            if (!itemDetails) {
-                alert("選択された商品はありません。");
+            if (!pinInput || pinInput.length < 4) {
+                alert("4桁の暗証番号を入力してください。");
                 return;
             }
 
+            const userKey = `${gakunenInput}-${classInput}-${numberInput}`;
+            const userDocRef = doc(db, "users", userKey);
+
             try {
+                const userSnap = await getDoc(userDocRef);
+
+                if (userSnap.exists()) {
+                    const registeredPin = userSnap.data().pin;
+                    if (pinInput !== registeredPin) {
+                        alert("暗証番号が正しくありません。他人の名前・番号で注文することはできません。");
+                        return; 
+                    }
+                } else {
+                    await setDoc(userDocRef, {
+                        gakunen: gakunenInput,
+                        className: classInput,
+                        number: numberInput,
+                        name: nameInput,
+                        pin: pinInput,
+                        createdAt: serverTimestamp()
+                    });
+                    alert("【初回確認】この番号の暗証番号として登録しました。次回以降も同じ暗証番号を入力してください。");
+                }
+
+                let itemDetails = "";
+                if (savedName > 0) itemDetails += `メロンパン:${savedName}個`;
+                if (savedMsg > 0) itemDetails += `おにぎり:${savedMsg}個`;
+                if (saved1 > 0) itemDetails += `チョコブラウニー:${saved1}個`;
+                if (savedD1 > 0) itemDetails += `きりっと果実:${savedD1}個`;
+                if (savedD2 > 0) itemDetails += `キリンメッツライチ:${savedD2}個`;
+                if (savedD3 > 0) itemDetails += `きりっと果実スカッシュ:${savedD3}個`;
+
                 await addDoc(collection(db, "orders"), {
                     gakunen: gakunenInput,
                     className: classInput,
+                    number: numberInput,
                     name: nameInput,
                     items: itemDetails,       
                     totalPrice: allTotal,     
-                    userId: "guest_user",       
+                    userId: userKey, 
                     userEmail: "guest@example.com",   
                     createdAt: serverTimestamp() 
                 });
 
-                alert("注文データを送信しました！購買でお待ちしています。");
+                alert("注文データを送信しました！購買でお持ちしています。");
                 document.getElementById('yourname').value = ""; 
+                document.getElementById('userPin').value = ""; 
 
             } catch (error) {
-                console.error("データ送信エラー:", error);
-                alert("送信に失敗しました。");
+                console.error("データ送信・認証エラー:", error);
+                alert("送信または認証に失敗しました。");
             }
         });
     }
+
     // 6. データクリアボタンの処理
     const clearBtn = document.getElementById('clearBtn');
     if (clearBtn) {
         clearBtn.addEventListener('click', () => {
-localStorage.clear();location.reload();});}
+            const itemsToClear = ['inputName', 'inputMsg', 'input1', 'inputD1', 'inputD2', 'inputD3'];
+            itemsToClear.forEach(key => localStorage.removeItem(key));
+            location.reload();
+        });
+    }
 </script>
 </body>
 </html>
