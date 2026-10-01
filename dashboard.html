@@ -49,6 +49,25 @@
             </tbody>
         </table>
     </div>
+
+    <div class="card-enquiries" style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); width: 100%; max-width: 900px; margin-top: 30px;">
+    <h3 style="margin-top: 0; color: #333;">✉️ 受信したお問い合わせ（リアルタイム）</h3>
+    <table style="width: 100%; border-collapse: collapse; margin-top: 15px; text-align: left;">
+        <thead>
+            <tr style="background: #f5f5f5; border-bottom: 2px solid #ddd;">
+                <th style="padding: 12px 10px; width: 20%;">所属 / 番号</th>
+                <th style="padding: 12px 10px; width: 15%;">氏名</th>
+                <th style="padding: 12px 10px; width: 50%;">内容</th>
+                <th style="padding: 12px 10px; width: 15%;">操作</th>
+            </tr>
+        </thead>
+        <tbody id="enquiryTableBody">
+            <tr>
+                <td colspan="4" style="padding: 20px; text-align: center; color: #999;">問い合わせを待機中...</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
       </section>
     </main>
 
@@ -277,6 +296,82 @@ onSnapshot(doc(db, "analytics", todayStr), (docSnap) => {
         if (tableBody) {
             tableBody.innerHTML = `<tr><td colspan="6" style="padding: 20px; text-align: center; color: red;">データの取得に失敗しました。</td></tr>`;
         }
+    });
+
+      const enquiriesQuery = query(collection(db, "enquiries"));
+    let isInitialEnquiryLoad = true;
+
+    onSnapshot(enquiriesQuery, (querySnapshot) => {
+        const enquiryBody = document.getElementById("enquiryTableBody");
+        if (!enquiryBody) return;
+        
+        enquiryBody.innerHTML = "";
+
+        if (querySnapshot.empty) {
+            enquiryBody.innerHTML = `<tr><td colspan="4" style="padding: 20px; text-align: center; color: #999;">問い合わせはありません。</td></tr>`;
+            isInitialEnquiryLoad = false;
+            return;
+        }
+
+        const enquiryRows = [];
+        let newEnquiryName = "";
+
+        querySnapshot.docChanges().forEach((change) => {
+            if (change.type === "added" && !isInitialEnquiryLoad) {
+                newEnquiryName = change.doc.data().name || "不明";
+            }
+        });
+
+        // 新着問い合わせのデスクトップ通知
+        if (newEnquiryName && Notification.permission === "granted") {
+            new Notification("✉️ 新しいお問い合わせが届きました！", {
+                body: `${newEnquiryName} 様からのメッセージです。`
+            });
+        }
+
+        querySnapshot.forEach((enquiryDoc) => {
+            const data = enquiryDoc.data();
+            const docId = enquiryDoc.id;
+            
+            const userKey = data.userKey || "";
+            const name = data.name || "不明";
+            const content = data.content || "なし";
+
+            const rowHTML = `
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 12px 10px; color: #555;">${userKey}</td>
+                    <td style="padding: 12px 10px; font-weight: bold; color: #333;">${name}</td>
+                    <td style="padding: 12px 10px; color: #666; font-size: 14px; white-space: pre-wrap;">${content}</td>
+                    <td style="padding: 12px 10px;">
+                        <button class="btn-delete-enquiry" data-id="${docId}" style="background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">対応済(削除)</button>
+                    </td>
+                </tr>
+            `;
+            enquiryRows.push(rowHTML);
+        });
+
+        enquiryRows.reverse();
+        enquiryBody.innerHTML = enquiryRows.join("");
+
+        // 問い合わせ削除（対応済）ボタンのイベント
+        const deleteEnquiryButtons = enquiryBody.querySelectorAll('.btn-delete-enquiry');
+        deleteEnquiryButtons.forEach(button => {
+            button.addEventListener('click', async (e) => {
+                const id = e.target.getAttribute('data-id');
+                if (id && confirm("この問い合わせを対応済みとして削除しますか？")) {
+                    try {
+                        await deleteDoc(doc(db, "enquiries", id));
+                    } catch (error) {
+                        console.error("問い合わせ削除エラー:", error);
+                        alert("削除に失敗しました。");
+                    }
+                }
+            });
+        });
+
+        isInitialEnquiryLoad = false;
+    }, (error) => {
+        console.error("問い合わせデータの取得エラー:", error);
     });
 </script>
 </body>

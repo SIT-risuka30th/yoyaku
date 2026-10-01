@@ -3,8 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>お問い合わせフォーム</title>
     <link rel="stylesheet" href="style.css">
+     <link rel="icon" href="data:,">
+      <style>
+        body { font-family: sans-serif; background: #f4f7f6; padding: 20px; }
+        .form-container { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-width: 500px; margin: 0 auto; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group input, .form-group textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        .form-group textarea { height: 120px; resize: none; }
+        .btn-submit { background: #3498db; color: white; border: none; padding: 12px; width: 100%; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: bold; }
+        .btn-submit:hover { background: #2980b9; }
+    </style>
 </head>
 <body>
     <header>
@@ -18,8 +29,68 @@
     </nav>
     </header>
 
-    <form action="mailto:SITkoubai.risuka30th@gmail.com" method="POST" enctype="multipart/from-deta">
-        <br>氏名：<input name="name" size=30></br>
-        <br><textarea name=tbox2 rows=10 cols=150 wrap=hard></textarea></br>
-        <input type=submit value="送信する">
-    </form>
+<div class="form-container">
+    <h2>✉️ お問い合わせフォーム</h2>
+    <div class="form-group">
+        <label for="gakunenClass">学年・クラス・出席番号:</label>
+        <input type="text" id="gakunenClass" placeholder="例: 3年B組15番">
+    </div>
+    <div class="form-group">
+        <label for="userName">氏名:</label>
+        <input type="text" id="userName" placeholder="例: 山田太郎">
+    </div>
+    <div class="form-group">
+        <label for="toiawaseContent">お問い合わせ内容:</label>
+        <textarea id="toiawaseContent" placeholder="質問や不具合、暗証番号がロックされた等の連絡をここに記入してください"></textarea>
+    </div>
+    <button id="submitBtn" class="btn-submit">送信する</button>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyBtLHgM6RzCU_grTElSqLCmsaRu4rVe-4o", 
+        authDomain: "://firebaseapp.com", 
+        projectId: "koubai-7b6a6", 
+        storageBucket: "koubai-7b6a6.firebasetorage.app", 
+        messagingSenderId: "934504714342", 
+        appId: "1:934504714342:web:e160ada63fcfcd906c5da7"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    document.getElementById('submitBtn').addEventListener('click', async () => {
+        const infoInput = document.getElementById('gakunenClass').value.trim();
+        const nameInput = document.getElementById('userName').value.trim();
+        const contentInput = document.getElementById('toiawaseContent').value.trim();
+
+        if (!infoInput || !nameInput || !contentInput) {
+            alert("すべての項目を入力してください。");
+            return;
+        }
+
+        try {
+            // Firestoreの "enquiries" コレクションに問い合わせを保存
+            await addDoc(collection(db, "enquiries"), {
+                userKey: infoInput,
+                name: nameInput,
+                content: contentInput,
+                createdAt: serverTimestamp()
+            });
+
+            alert("お問い合わせを送信しました！管理者が確認するまでお待ちください。");
+            document.getElementById('gakunenClass').value = "";
+            document.getElementById('userName').value = "";
+            document.getElementById('toiawaseContent').value = "";
+
+        } catch (error) {
+            console.error("問い合わせ送信エラー:", error);
+            alert("送信に失敗しました。");
+        }
+    });
+</script>
+</body>
+</html>
