@@ -44,10 +44,15 @@
                     <td id="displayMsg" class="data-text">未入力</td>
                     <td id="priceMsg" class="price-text">0円</td>
                 </tr>
-                <tr id="row1">
+                <tr id="rowF3">
                     <td>チョコブラウニー</td>
-                    <td id="display1" class="data-text">未入力</td>
-                    <td id="price1" class="price-text">0円</td>
+                    <td id="displayF3" class="data-text">未入力</td>
+                    <td id="priceF3" class="price-text">0円</td>
+                </tr>
+                <tr id="rowF4">
+                    <td>絹艶 ドーナツ</td>
+                    <td id="displayF4" class="data-text">未入力</td>
+                    <td id="priceF4" class="data-text">0円</td>
                 </tr>
                 <tr id="rowD1">
                     <td>きりっと果実</td>
@@ -198,9 +203,10 @@
    
 
     // 2. 商品の単価設定
-    const PRICE_A = 160;
-    const PRICE_B = 180;
-    const PRICE_C = 140;
+    const PRICE_F1 = 160;
+    const PRICE_F2 = 170;
+    const PRICE_F3 = 140;
+    const PRICE_F4 = 140;
     const PRICE_D1 = 180;
     const PRICE_D2 = 180;
     const PRICE_D3 = 150;
@@ -220,44 +226,48 @@
     }
 
     // 4. ローカルストレージから個数を取得
-    const rawA = localStorage.getItem('inputName') || "";
-    const rawB = localStorage.getItem('inputMsg') || "";
-    const rawC = localStorage.getItem('input1') || "";
+    const rawF1 = localStorage.getItem('inputName') || "";
+    const rawF2 = localStorage.getItem('inputMsg') || "";
+    const rawF3 = localStorage.getItem('inputF3') || "";
+    const rawF4 = localStorage.getItem('inputF4') || "";
     const rawD1 = localStorage.getItem('inputD1') || "";
     const rawD2 = localStorage.getItem('inputD2') || "";
     const rawD3 = localStorage.getItem('inputD3') || "";
 
-    const savedName = parseInt(rawA.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
-    const savedMsg = parseInt(rawB.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
-    const saved1 = parseInt(rawC.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
+    const savedName = parseInt(rawF1.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
+    const savedMsg = parseInt(rawF2.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
+    const savedF3 = parseInt(rawF3.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
+    const savedF4 = parseInt(rawF4.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
     const savedD1 = parseInt(rawD1.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
     const savedD2 = parseInt(rawD2.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
     const savedD3 = parseInt(rawD3.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
 
-    const totalA = savedName * PRICE_A;
-    const totalB = savedMsg * PRICE_B;
-    const totalC = saved1 * PRICE_C;
+    const totalF1 = savedName * PRICE_F1;
+    const totalF2 = savedMsg * PRICE_F2;
+    const totalF3 = savedF3 * PRICE_F3;
+    const totalF4 = savedF4 * PRICE_F4;
     const totalD1 = savedD1 * PRICE_D1;
     const totalD2 = savedD2 * PRICE_D2;
     const totalD3 = savedD3 * PRICE_D3;
 
-    handleRow('rowName', 'displayName', 'priceName', savedName, totalA);
-    handleRow('rowMsg', 'displayMsg', 'priceMsg', savedMsg, totalB);
-    handleRow('row1', 'display1', 'price1', saved1, totalC);
+    handleRow('rowName', 'displayName', 'priceName', savedName, totalF1);
+    handleRow('rowMsg', 'displayMsg', 'priceMsg', savedMsg, totalF2);
+    handleRow('rowF3', 'displayF3', 'priceF3', savedF3, totalF3);
+    handleRow('rowF4', 'displayF4', 'priceF4', savedF4, totalF4);
     handleRow('rowD1', 'displayD1', 'priceD1', savedD1, totalD1);
     handleRow('rowD2', 'displayD2', 'priceD2', savedD2, totalD2);
     handleRow('rowD3', 'displayD3', 'priceD3', savedD3, totalD3);
 
     const totalPriceEl = document.getElementById('totalPrice');
     if (totalPriceEl) {
-        totalPriceEl.textContent = (totalA + totalB + totalC + totalD1 + totalD2 + totalD3).toLocaleString();
+        totalPriceEl.textContent = (totalF1 + totalF2 + totalF3 + totalF4 + totalD1 + totalD2 + totalD3).toLocaleString();
     }
 
     // 5. 📤 注文データ送信処理（Googleアカウント紐付け対応版）
      const mailBtn = document.getElementById('mailBtn');
     if (mailBtn) {
         mailBtn.addEventListener('click', async () => {
-            const allTotal = totalA + totalB + totalC + totalD1 + totalD2 + totalD3;
+            const allTotal = totalF1 + totalF2 + totalF3  + totalF4 + totalD1 + totalD2 + totalD3;
 
             if (allTotal === 0) {
                 alert("商品が選択されていません。個数を入力してください。");
@@ -312,7 +322,8 @@
                 let itemDetails = "";
                 if (savedName > 0) itemDetails += `メロンパン:${savedName}個`;
                 if (savedMsg > 0) itemDetails += `おにぎり:${savedMsg}個`;
-                if (saved1 > 0) itemDetails += `チョコブラウニー:${saved1}個`;
+                if (savedF3 > 0) itemDetails += `チョコブラウニー:${savedF3}個`;
+                if (savedF4 > 0) itemDetails += `絹艶 ドーナツ:${savedF4}個`;
                 if (savedD1 > 0) itemDetails += `きりっと果実:${savedD1}個`;
                 if (savedD2 > 0) itemDetails += `キリンメッツライチ:${savedD2}個`;
                 if (savedD3 > 0) itemDetails += `きりっと果実スカッシュ:${savedD3}個`;
@@ -344,7 +355,7 @@
     const clearBtn = document.getElementById('clearBtn');
     if (clearBtn) {
         clearBtn.addEventListener('click', () => {
-            const itemsToClear = ['inputName', 'inputMsg', 'input1', 'inputD1', 'inputD2', 'inputD3'];
+            const itemsToClear = ['inputName', 'inputMsg', 'inputF3', 'inputF4', 'inputD1', 'inputD2', 'inputD3'];
             itemsToClear.forEach(key => localStorage.removeItem(key));
             location.reload();
         });
