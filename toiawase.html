@@ -5,17 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>お問い合わせフォーム</title>
     <link rel="stylesheet" href="style.css">
-     <link rel="icon" href="data:,">
-      <style>
-        body { font-family: sans-serif; background: #f4f7f6; padding: 20px; }
-        .form-container { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-width: 500px; margin: 0 auto; }
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
-        .form-group input, .form-group textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
-        .form-group textarea { height: 120px; resize: none; }
-        .btn-submit { background: #3498db; color: white; border: none; padding: 12px; width: 100%; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: bold; }
-        .btn-submit:hover { background: #2980b9; }
-    </style>
 </head>
 <body>
     <header>
@@ -30,18 +19,25 @@
     </header>
 
 
-    <h2>✉️ お問い合わせフォーム</h2>
-    <div class="form-group">
-        <label for="gakunenClass">学年・クラス・出席番号:</label>
-          <div style="display: flex; gap: 10px; align-items: center;">
-            <select id="gakunenSelect" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+ <div style="max-width: 800px; margin: 30px auto; padding: 20px; font-family: sans-serif; background-color: #fff;">
+    <h2 style="font-size: 22px; margin-bottom: 20px; font-weight: bold; border-left: 5px solid #2b6cb0; padding-left: 10px; color: #333;">
+        ⬜ お問い合わせフォーム
+    </h2>
+
+    <!-- 学年・クラス・出席番号（すっきり横並び） -->
+    <div style="margin-bottom: 20px;">
+        <label style="display: block; font-weight: bold; margin-bottom: 8px; font-size: 14px; color: #444;">学年・クラス・出席番号:</label>
+        <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+            <!-- 学年プルダウン -->
+            <select id="gakunenSelect" style="width: 130px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; background-color: #fff; font-size: 14px; height: 42px;">
                 <option value="">学年</option>
                 <option value="1年">1年</option>
                 <option value="2年">2年</option>
                 <option value="3年">3年</option>
             </select>
 
-              <select id="classSelect" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+            <!-- クラスプルダウン -->
+            <select id="classSelect" style="width: 130px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; background-color: #fff; font-size: 14px; height: 42px;">
                 <option value="">クラス</option>
                 <option value="1組">1組</option>
                 <option value="2組">2組</option>
@@ -51,28 +47,33 @@
                 <option value="6組">6組</option>
                 <option value="7組">7組</option>
                 <option value="8組">8組</option>
-
-            
             </select>
 
-              <div style="display: flex; align-items: center; gap: 5px;">
-                <input type="number" id="numberInput" min="1" max="99"  style="width: 70px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; text-align: center;">
-                <span style="font-size: 14px; color: #333;">番</span>
+            <!-- 出席番号入力欄（幅を固定してスッキリ） -->
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <input type="number" id="numberInput" min="1" max="99"  style="width: 80px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; height: 20px; text-align: center;">
+                <span style="font-size: 14px; color: #333; font-weight: bold;">番</span>
             </div>
         </div>
     </div>
 
-
-    <div class="form-group">
-        <label for="userName">氏名:</label>
-        <input type="text" id="userName" placeholder="">
+    <!-- 氏名入力欄（横幅いっぱいに広げる） -->
+    <div style="margin-bottom: 20px;">
+        <label for="userName" style="display: block; font-weight: bold; margin-bottom: 8px; font-size: 14px; color: #444;">氏名:</label>
+        <input type="text" id="userName" placeholder="例: 札情 太郎" style="width: 100%; max-width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
     </div>
-    <div class="form-group">
-        <label for="toiawaseContent">お問い合わせ内容:</label>
-        <textarea id="toiawaseContent" placeholder="質問や不具合、暗証番号がロックされた等の連絡をここに記入してください"></textarea>
-    </div>
-    <button id="submitBtn" class="btn-submit">送信する</button>
 
+    <!-- お問い合わせ内容（横幅いっぱいに広げ、高さを確保） -->
+    <div style="margin-bottom: 25px;">
+        <label for="toiawaseContent" style="display: block; font-weight: bold; margin-bottom: 8px; font-size: 14px; color: #444;">お問い合わせ内容:</label>
+        <textarea id="toiawaseContent" placeholder="質問や不具合、暗証番号がロックされた等の連絡をここに記入してください" style="width: 100%; max-width: 100%; box-sizing: border-box; height: 150px; padding: 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; font-family: sans-serif; resize: vertical;"></textarea>
+    </div>
+
+    <!-- 送信ボタン（元の青色の横長ボタンを完全再現） -->
+    <button id="submitBtn" class="btn-submit" style="width: 100%; padding: 14px; background-color: #0099e5; color: #fff; border: none; border-radius: 4px; font-size: 16px; font-weight: bold; cursor: pointer; transition: background-color 0.2s;">
+        送信する
+    </button>
+</div>
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
     import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
