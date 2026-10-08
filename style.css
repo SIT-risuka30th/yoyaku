@@ -6,8 +6,7 @@ html,body{
 }
 
 body{
- padding-bottom:200px;
-
+ overflow-x: hidden;
 }
 
 header,footer{
