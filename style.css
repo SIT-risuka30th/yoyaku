@@ -6,8 +6,8 @@ html,body{
 }
 
 body{
- margin-bottom:260px;
- overflow-x: hidden;
+ padding-bottom:150px;
+
 }
 
 header,footer{
