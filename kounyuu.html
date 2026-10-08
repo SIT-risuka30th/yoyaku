@@ -263,7 +263,6 @@
         totalPriceEl.textContent = (totalF1 + totalF2 + totalF3 + totalF4 + totalD1 + totalD2 + totalD3).toLocaleString();
     }
 
-    // 5. 📤 注文データ送信処理（Googleアカウント紐付け対応版）
      const mailBtn = document.getElementById('mailBtn');
     if (mailBtn) {
         mailBtn.addEventListener('click', async () => {
@@ -303,6 +302,12 @@
 
                 if (userSnap.exists()) {
                     const registeredPin = userSnap.data().pin;
+
+                      if (!registeredPin) {
+                        alert("暗証番号が設定されていません。管理者に連絡してください。");
+                        return;
+                    }
+                    
                     if (pinInput !== registeredPin) {
                         alert("暗証番号が正しくありません。他人の名前・番号で注文することはできません。");
                         return; 
