@@ -103,12 +103,12 @@
         </div>
 
         <div class="form-group">
-    <label for="shusshkiNumber">出席番号:</label>
+    <label for="shusshkiNumber">出席番号：</label>
     <input type="number" id="shusshkiNumber" placeholder="例: 15" min="1">
 </div>
 
 <div class="form-group">
-    <label for="userPin">暗証番号（自分で決める4桁）:</label>
+    <label for="userPin">暗証番号（自分で決める4桁）：</label>
     <!-- 数字4桁の伏せ字入力欄 -->
     <input type="password" id="userPin" placeholder="初回に決めた4桁の数字" maxlength="4" pattern="\d{4}">
     <small style="color: gray; display: block;">※初めてこの番号を使う際に入力した番号が、あなた専用のパスワードになります。</small>
@@ -307,7 +307,7 @@
                         alert("暗証番号が設定されていません。管理者に連絡してください。");
                         return;
                     }
-                    
+
                     if (pinInput !== registeredPin) {
                         alert("暗証番号が正しくありません。他人の名前・番号で注文することはできません。");
                         return; 
