@@ -6,8 +6,7 @@ html,body{
 }
 
 body{
- margin:0;
- padding-bottom:260px;
+ margin-bottom:130px;
  overflow-x: hidden;
 }
 
@@ -16,7 +15,7 @@ header,footer{
   box-sizing: border-box;
 }
 
-mian{
+main{
   flex:5;
 }
 
