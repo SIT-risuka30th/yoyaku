@@ -35,7 +35,7 @@
     const SHEET_NAME = "商品";
 
     // 確実にデータだけを引っこ抜くCSV形式のURLを構築
-    const csvUrl = `https://google.com{SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}`;
+    const csvUrl = `https://google.com${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}`;
 
     (async function() {
         try {
