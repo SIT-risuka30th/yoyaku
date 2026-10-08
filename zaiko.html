@@ -20,7 +20,10 @@
     </header>
 
         <div id="table-container">
-             <style>
+         
+        <p class="loading">データを読み込み中...</p>
+    </div>
+    <style>
             body { font-family: sans-serif; margin: 20px; }
         table { border-collapse: collapse; width: 100%; margin-top: 20px; }
         th, td { border: 1px solid #ccc; padding: 10px; text-align: left; }
@@ -28,15 +31,9 @@
         tr:nth-child(even) { background-color: #fafafa; }
         .loading { color: #666; font-style: italic; }
     </style>
-        <p class="loading">データを読み込み中...</p>
-    </div>
-
 <script>
-   const SPREADSHEET_ID = "1lnttp4cb8prbuyngxin8wi25zkgdhmm3oij4u-tzmtw";
-    const SHEET_NAME = "商品";
+    const csvUrl = "https://docs.google.com/spreadsheets/d/1lNTTP4Cb8prBuYnGxin8wI25zkgdhMM3Oij4U-tZmTw/gviz/tq?tqx=out:csv&sheet=%E5%95%86%E5%93%81";
 
-    // 確実にデータだけを引っこ抜くCSV形式のURLを構築
-    const csvUrl = `https://google.com${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}`;
 
     (async function() {
         try {
@@ -67,8 +64,8 @@
         for (let i = 0; i < lines.length; i++) {
             if (!lines[i]) continue;
             // カンマ区切りで分割（ダブルクォーテーションを考慮）
-            const row = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*\$)/).map(val => {
-                return val.replace(/^"|"\$/g, '').trim(); // 前後の余計な"を消す
+                const row = lines[i].split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(val => {
+                return val.replace(/^"|"$/g, '').trim(); // 前後の余計なダブルクォーテーションを消す
             });
             result.push(row);
         }
