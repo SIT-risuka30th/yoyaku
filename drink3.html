@@ -21,19 +21,23 @@
         
 
    
-        <div class="product-card">
+       <div class="product-card">
             <img class="slideInB-img" width="390px" height="600px" src="l_sbf1676-2.jpg" alt="商品画像">
-             <h1>きりっと果実スカッシュ</h1>
-             <h2>150円</h2>
+            
+            <div class="product-info">
 
-       
+            <div class="name-price">
+            <h1>きりっと果実 スカッシュ</h1>
+                <p class="price">150円</p>
+                </div>
+
+        <div class="container">
+        <input type="text" style="height:30px" id="nameInput" placeholder="個数を入力">
+        <button id="saveBtn">カートに入れる</button>
+        <p><a href="drinkhome.html">商品ページに戻る</a></p>
+        
+         </div>
         </div>
-    </div>
-
-    <div class="container">
-        <input type="text" id="nameInput" placeholder="個数を入力">
-        <button id="saveBtn">データを保存</button>
-        <p><a href="kounyuu.html">カートを見る</a></p>
     </div>
     
 <a href="kounyuu.html" class="float-btn"> <img src="kkrn_icon_cart_6.png" alt="購入画面へ"></a>
@@ -41,6 +45,12 @@
     <script>
         document.getElementById('saveBtn').addEventListener('click', () => {
             const nameValue = document.getElementById('nameInput').value;
+
+              if(nameValue.trim()==''){
+                alert("個数を入力してください");
+                return;
+            }
+
             localStorage.setItem('inputD3', nameValue);
             alert('入力を保存しました！');
         });

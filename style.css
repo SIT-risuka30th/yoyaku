@@ -82,7 +82,35 @@ height:130px;
   margin-bottom:0;
 }
 
+.product-card{
+  display:flex;
+align-items: flex-start;
+gap:10px;
+}
 
+.product-info{
+display:flex;
+flex-direction:column;
+align-items:flex-start;
+gap:0px;
+}
+
+.price{
+  font-size:30px;
+  line-height:0.1;
+}
+
+.name-price{
+  margin:10px;
+  display:flex;
+  align-items:baseline;
+  gap:10px;
+
+}
+
+.container{
+  margin:10px;
+}
 
 .box2{
   width:400px;
