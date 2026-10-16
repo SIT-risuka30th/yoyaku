@@ -31,6 +31,33 @@
                <p>現在の閲覧者数: <span id="currentOnlineCount">0</span>人</p>
                 <p>今日の累計訪問者数: <span id="viewCount">0</span>人</p>
             </div>
+
+            <div style="background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 30px;">
+    <h3 style="margin-top: 0; color: #333;">📢 新しいお知らせを投稿する</h3>
+    <form id="newsForm">
+        <div style="margin-bottom: 12px;">
+            <textarea id="newsBody" placeholder="お知らせを入力してください" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 14px; min-height: 100px; resize: vertical;"></textarea>
+        </div>
+        <button type="submit" style="background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 15px;">投稿する</button>
+    </form>
+</div>
+
+<!-- 📊 投稿済みお知らせの管理用テーブル -->
+<div style="background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-height: 350px; overflow-y: auto; margin-bottom:25px;">
+    <h3 style="margin-top: 0; color: #333;">📋 投稿済みのお知らせ一覧</h3>
+    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+        <thead>
+            <tr style="border-bottom: 2px solid #ddd; background: #f9f9f9; position: sticky; top: 0; z-index: 10;">
+                <!-- 💡 スクロールしても見出しが消えないように position: sticky を足してあります -->
+                <th style="padding: 12px 10px; color: #666;">本文</th>
+                <th style="padding: 12px 10px; color: #666; width: 100px;">操作</th>
+            </tr>
+        </thead>
+        <tbody id="newsTableBody">
+            <!-- JavaScriptでお知らせ一覧がここに自動挿入されます -->
+        </tbody>
+    </table>
+</div>
       
 
   <div class="card-orders" style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); width: 200%; max-width: 1000px;">
@@ -78,7 +105,7 @@
   
   <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-     import { getFirestore, doc, deleteDoc,onSnapshot, collection, query} from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+     import { getFirestore, doc, deleteDoc,onSnapshot, collection, query, addDoc, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
      import { getDatabase, ref, onValue} from  "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
 
    const firebaseConfig = {
@@ -377,6 +404,95 @@ onSnapshot(doc(db, "analytics", todayStr), (docSnap) => {
     }, (error) => {
         console.error("問い合わせデータの取得エラー:", error);
     });
+
+       const newsQuery = query(collection(db, "news"), orderBy("date", "desc"));
+
+    onSnapshot(newsQuery, (querySnapshot) => {
+        const newsBody = document.getElementById("newsTableBody");
+        if (!newsBody) return;
+        
+        newsBody.innerHTML = "";
+
+        if (querySnapshot.empty) {
+            newsBody.innerHTML = `<tr><td colspan="4" style="padding: 20px; text-align: center; color: #999;">投稿されたお知らせはありません。</td></tr>`;
+            return;
+        }
+
+        const newsRows = [];
+
+        querySnapshot.forEach((newsDoc) => {
+            const data = newsDoc.data();
+            const docId = newsDoc.id;
+            
+            const title = data.title || "無題";
+            const body = data.body || "";
+            
+            // FirebaseのTimestampを「2026/10/16」のような見やすい日付文字列に変換
+            const dateStr = data.date ? data.date.toDate().toLocaleDateString('ja-JP', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour:'2-digit',
+                minute: '2-digit'
+            }): "---";
+
+            // 他のテーブルとデザイン（paddingやborder）を統一したHTML
+            const rowHTML = `
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 12px 10px; color: #555; white-space: nowrap;">${dateStr}</td>
+                    <td style="padding: 12px 10px; color: #666; font-size: 14px; white-space: pre-wrap;">${body}</td>
+                    <td style="padding: 12px 10px;">
+                        <button class="btn-delete-news" data-id="${docId}" style="background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">削除</button>
+                    </td>
+                </tr>
+            `;
+            newsRows.push(rowHTML);
+        });
+
+        // 既にクエリ側で降順（orderBy）ソートしているため、そのまま結合して代入します
+        newsBody.innerHTML = newsRows.join("");
+
+        // お知らせ削除ボタンのイベント設定（注文や問い合わせの処理と統一）
+        const deleteNewsButtons = newsBody.querySelectorAll('.btn-delete-news');
+        deleteNewsButtons.forEach(button => {
+            button.addEventListener('click', async (e) => {
+                const id = e.target.getAttribute('data-id');
+                if (id && confirm("このお知らせを完全に削除してもよろしいですか？")) {
+                    try {
+                        await deleteDoc(doc(db, "news", id));
+                        
+                    } catch (error) {
+                        console.error("お知らせ削除エラー:", error);
+                        alert("削除に失敗しました。");
+                    }
+                }
+            });
+        });
+    }, (error) => {
+        console.error("お知らせデータの取得エラー:", error);
+    });
+
+    // --- 📥 ④ お知らせの新規投稿フォームの処理 ---
+    const newsForm = document.getElementById("newsForm");
+    if (newsForm) {
+        newsForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const body = document.getElementById("newsBody").value;
+
+            try {
+                await addDoc(collection(db, "news"), {
+                    body: body,
+                    date: serverTimestamp() // 正確なサーバー時間を記録
+                });
+                alert("📢 お知らせを投稿しました！");
+                newsForm.reset(); // 入力欄をクリア
+            } catch (error) {
+                console.error("お知らせ投稿エラー:", error);
+                alert("お知らせの投稿に失敗しました。");
+            }
+        });
+    }
 </script>
 </body>
 </html>

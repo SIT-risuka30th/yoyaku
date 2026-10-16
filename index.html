@@ -19,10 +19,12 @@
     </header>
 
     <main>
-    <div class="class1">
- <a href="osusume.html" class="example"><img class="slideInB-img" width="800"src="今月のおすすめ_20260522_103453_0000.png" alt="">
-</a>
-</div>
+    <div id="news-area" style="max-width: 800px; margin: 20px auto; padding: 0 15px; box-sizing: border-box; font-family: sans-serif;">
+        <h2 style="font-size: 20px; color: #333; border-left: 5px solid #4169e1; padding-left: 10px; margin-bottom: 15px; text-align: left;">📢 購買からのお知らせ</h2>
+        <div id="news-list-container" style="max-height:360px; overflow-y: auto; padding-right:5px;">
+            <!-- ここに動的にお知らせのカードが追加されます -->
+        </div>
+    </div>
 
 <div class="button-area">
       <a href="foodhome.html" style="color:#ffffff;font-weight:bold;text-decoration:none;line-height:5.0;">
@@ -78,7 +80,7 @@ function trackPresence() {
 // 実行する
 trackPresence();
 
-import { getFirestore, doc, updateDoc, increment, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+import { getFirestore, doc, updateDoc, increment, setDoc, getDoc, collection, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 
 const db = getFirestore(app); // 既存のdb初期化
 
@@ -109,6 +111,56 @@ async function countTodayView() {
 
 // 実行する
 countTodayView();
+
+function listenNewsUpdates() {
+    const container = document.getElementById("news-list-container");
+    if (!container) return;
+
+    // 日付の新しい順（desc）に「news」コレクションを監視するクエリ
+    const newsQuery = query(collection(db, "news"), orderBy("date", "desc"));
+
+    onSnapshot(newsQuery, (querySnapshot) => {
+        container.innerHTML = ""; // 一度初期化
+
+        if (querySnapshot.empty) {
+            container.innerHTML = `
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; text-align: center; color: #777; border: 1px dashed #ccc;">
+                    現在、新しいお知らせはありません。
+                </div>`;
+            return;
+        }
+
+        querySnapshot.forEach((newsDoc) => {
+            const data = newsDoc.data();
+            const title = data.title || "無題";
+            const body = data.body || "";
+            
+            // FirebaseのTimestampを「2026/10/16」形式の日付文字列に変換
+            const dateStr = data.date ? data.date.toDate().toLocaleDateString('ja-JP',{
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            }) : "---";
+
+
+            // 生徒向けの綺麗なカード型UIデザイン
+            const cardHTML = `
+                <div class="news-card" style="background: #ffffff; padding: 15px 20px; border-radius: 8px; box-shadow: 2px 2px 6px rgba(0,0,0,0.08); border-left: 5px solid #4169e1; margin-bottom: 12px; text-align: left;">
+                    <div style="font-size: 13px; color: #888; margin-bottom: 5px; font-weight: bold;">🕒 ${dateStr}</div>
+                    <p style="margin: 0; font-size: 18px; color: #555; white-space: pre-wrap; line-height: 1.5;">${body}</p>
+                </div>
+            `;
+            container.innerHTML += cardHTML;
+        });
+    }, (error) => {
+        console.error("生徒側お知らせ取得エラー:", error);
+    });
+}
+
+// 実行する
+listenNewsUpdates();
 
 
 
