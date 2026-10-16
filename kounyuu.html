@@ -116,7 +116,7 @@
     <label for="userPin">暗証番号（自分で決める4桁）：</label>
     <!-- 数字4桁の伏せ字入力欄 -->
     <input type="password" id="userPin" placeholder="初回に決めた4桁の数字" maxlength="4" pattern="\d{4}">
-    <small style="color: gray; display: block;">※初めてこの番号を使う際に入力した番号が、あなた専用のパスワードになります。</small>
+    <small style="color: gray; display: block;">※初めてこの番号を使う際に入力した番号が、あなた専用のパスワードになります。他人に知られたら勝手に注文されてしまうかもしれません。</small>
 </div>
 
         <!-- メール送信ボタン -->
@@ -298,7 +298,6 @@
                 alert("氏名を入力してください。");
                 return;
             }
-
             if (!pinInput || pinInput.length < 4) {
                 alert("4桁の暗証番号を入力してください。");
                 return;
@@ -311,24 +310,61 @@
                 const userSnap = await getDoc(userDocRef);
 
                 if (userSnap.exists()) {
-                    const registeredPin = userSnap.data().pin;
+                    const userData = userSnap.data();
+                    const registeredPin = userData.pin;
 
-                      if (!registeredPin) {
+                    // 1. 【追加】ロック中かどうかの判定
+                    if (userData.lockedUntil && userData.lockedUntil.toDate() > new Date()) {
+                        const timeLeft = Math.ceil((userData.lockedUntil.toDate() - new Date()) / 1000 / 60);
+                        alert(`間違えすぎたためロックされています。\nあと ${timeLeft} 分入力できません。`);
+                        return;
+                    }
+
+                    if (!registeredPin) {
                         alert("暗証番号が設定されていません。管理者に連絡してください。");
                         return;
                     }
 
                     if (pinInput !== registeredPin) {
-                        alert("暗証番号が正しくありません。他人の名前・番号で注文することはできません。");
+                        // 2. 【追加】間違えた場合の処理（カウントアップとロック）
+                        const currentAttempts = (userData.attempts || 0) + 1;
+                        
+                        if (currentAttempts >= 3) {
+                            // 3回間違えたら1時間ロック（現在時刻 + 1時間）
+                            const lockDate = new Date(Date.now() + 60 * 60 * 1000);
+                            await updateDoc(userDocRef, {
+                                attempts: currentAttempts,
+                                lockedUntil: lockDate
+                            });
+                            alert("暗証番号が正しくありません。\n3回間違えたため、1時間ロックされました。");
+                        } else {
+                            // 失敗回数を+1する
+                            await updateDoc(userDocRef, {
+                                attempts: currentAttempts
+                            });
+                            alert(`暗証番号が正しくありません。（あと ${3 - currentAttempts} 回でロックされます）`);
+                        }
                         return; 
                     }
+
+                    // 3. 【追加】認証成功時は、失敗カウントをリセットする
+                    if (userData.attempts > 0 || userData.lockedUntil) {
+                        await updateDoc(userDocRef, {
+                            attempts: 0,
+                            lockedUntil: null
+                        });
+                    }
+
                 } else {
+                    // 初回登録時は attempts: 0, lockedUntil: null も一緒に初期化しておく
                     await setDoc(userDocRef, {
                         gakunen: gakunenInput,
                         className: classInput,
                         number: numberInput,
                         name: nameInput,
                         pin: pinInput,
+                        attempts: 0,
+                        lockedUntil: null,
                         createdAt: serverTimestamp()
                     });
                     alert("【初回確認】この番号の暗証番号として登録しました。次回以降も同じ暗証番号を入力してください。");
