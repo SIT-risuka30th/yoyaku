@@ -12,13 +12,12 @@
     <nav class="nav">
         <ul class="menu-group">
         <li class="menu-item"><a href="index.html">ホーム</a></li>
+        <li class="menu-item"><a href="rireki.html">購入履歴</a></li>
         <li class="menu-item"><a href="zaikokakunin.html">在庫確認</a></li>
         <li class="menu-item"><a href="https://docs.google.com/spreadsheets/d/1XDmbBjMA3AwlaBiqVhovvMnNDv-elaaaNoHIWIbCZvI/edit?gid=0#gid=0">在庫数変更</a>   </li>
         </ul>
     </nav>
     </header>
-
-    <!-- アナウンスシステム時間があったら作る -->
 
 <body class="dashboard-body">
 
@@ -60,13 +59,13 @@
 </div>
       
 
-  <div class="card-orders" style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); width: 200%; max-width: 1000px;">
+  <div class="card-orders" style="background: white; padding: 20px;  border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); width: 200%; max-width: 1750px;">
         <h3 style="margin-top: 0; color: #333;">📦 受信した注文一覧（リアルタイム）</h3>
-        <table style="width: 100%; border-collapse: collapse; margin-top: 15px; text-align: left;">
+        <table style="width: 1750px; border-collapse: collapse; margin-top: 15px; text-align: left;">
             <thead>
                 <tr style="background: #f5f5f5; border-bottom: 2px solid #ddd;">
                     <th style="padding: 12px 10px;">学年・クラス</th>
-                     <th style="padding: 12px 10px;">出席番号</th>
+                    <th style="padding: 12px 10px;">出席番号</th>
                     <th style="padding: 12px 10px;">氏名</th>
                     <th style="padding: 12px 10px;">注文内容</th>
                     <th style="padding: 12px 10px;">合計金額</th>
@@ -104,9 +103,9 @@
 
   
   <script type="module">
-      import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-     import { getFirestore, doc, deleteDoc,onSnapshot, collection, query, addDoc, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
-     import { getDatabase, ref, onValue} from  "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+    import { getFirestore, doc, deleteDoc,onSnapshot, collection, query, addDoc, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+    import { getDatabase, ref, onValue} from  "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
 
    const firebaseConfig = {
             apiKey: "AIzaSyBtLHgM6RzCU_grTElSqLCmsaRu4rVe-4o", 
@@ -174,7 +173,7 @@ onSnapshot(doc(db, "analytics", todayStr), (docSnap) => {
 });
 
         // --- 📦 ② 注文データのリアルタイム監視 ---
-  const ordersQuery = query(collection(db, "orders"));
+const ordersQuery = query(collection(db, "orders"), orderBy("createdAt", "desc"));
 
     // 初回読み込みかどうかを判定するフラグ
     let isInitialLoad = true;
@@ -278,7 +277,6 @@ onSnapshot(doc(db, "analytics", todayStr), (docSnap) => {
             orderRows.push(rowHTML);
         });
 
-        orderRows.reverse();
         tableBody.innerHTML = orderRows.join("");
 
         // 削除ボタンのイベント設定

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ja">
+    <head>
+        <meta charset="UTF-8">
+    <title>購入履歴</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="data:,">
+    </head>
+   <header>
+    <h1 class="title">管理者ダッシュボード</h1>
+    <nav class="nav">
+        <ul class="menu-group">
+        <li class="menu-item"><a href="index.html">ホーム</a></li>
+        <li class="menu-item"><a href="rireki.html">購入履歴</a></li>
+        <li class="menu-item"><a href="zaikokakunin.html">在庫確認</a></li>
+        <li class="menu-item"><a href="https://docs.google.com/spreadsheets/d/1XDmbBjMA3AwlaBiqVhovvMnNDv-elaaaNoHIWIbCZvI/edit?gid=0#gid=0">在庫数変更</a>   </li>
+        </ul>
+    </nav>
+    </header>
+<body>
+
+  <h2><a href="dashboard.html">ダッシュボードに戻る</a></h2>
+  <h1>【管理者用】過去の購入履歴一覧</h1>
+  
+  <div id="loading" class="loading">Firestoreから履歴を読み込み中...</div>
+  <div id="table-container"></div>
+
+    <style>
+    body { font-family: sans-serif; margin: 30px; background-color: #f8f9fa; }
+    h1 { color: #333; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
+    th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+    th { background-color: #28a745; color: white; } /* 管理者用として緑基調にしています */
+    tr:nth-child(even) { background-color: #f2f2f2; }
+    .loading { font-size: 18px; color: #666; }
+  </style>
+
+
+  <!-- 共有いただいたコードと同じバージョン(11.0.0)のSDKを使用 -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+    import { getFirestore, collection, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+
+    // 共有いただいたConfig情報をそのまま適用しています
+    const firebaseConfig = {
+        apiKey: "AIzaSyBtLHgM6RzCU_grTElSqLCmsaRu4rVe-4o", 
+        authDomain: "://firebaseapp.com", 
+        projectId: "koubai-7b6a6", 
+        storageBucket: "koubai-7b6a6.firebasetorage.app", 
+        messagingSenderId: "934504714342", 
+        appId: "1:934504714342:web:e160ada63fcfcd906c5da7"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // ordersコレクションを「注文日時が新しい順（desc）」にリアルタイム監視するクエリ
+    const ordersQuery = query(collection(db, "orders"));
+    
+    onSnapshot(ordersQuery, (snapshot) => {
+      const loadingEl = document.getElementById('loading');
+      if (loadingEl) loadingEl.style.display = 'none';
+
+      if (snapshot.empty) {
+        document.getElementById('table-container').innerHTML = "<p>まだ注文データ（購入履歴）はありません。</p>";
+        return;
+      }
+
+      // テーブルの見出し（ヘッダー）
+      let tableHtml = `
+        <table>
+          <thead>
+            <tr>
+              <th>注文日時</th>
+              <th>クラス（学年-組-番号）</th>
+              <th>氏名</th>
+              <th>注文内容</th>
+              <th>合計金額</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      // 取得したデータをループ処理してテーブルの行を組み立てる
+      snapshot.forEach((doc) => {
+        const order = doc.data();
+
+        // FirestoreのserverTimestamp(生データ)を、日本時間の読みやすい文字列に変える処理
+        let formattedDate = "日時不明";
+        if (order.createdAt) {
+          // 注文直後は一時的にnullになることがあるため存在チェック
+          const dateObj = order.createdAt.toDate();
+          formattedDate = dateObj.toLocaleString('ja-JP');
+        }
+
+        tableHtml += `
+          <tr>
+            <td>${formattedDate}</td>
+            <td>${order.gakunen || ''}年 ${order.className || ''}組 ${order.number || ''}番</td>
+            <td>${order.name || ''}</td>
+            <td>${order.items || 'なし'}</td>
+            <td>¥${order.totalPrice ? order.totalPrice.toLocaleString() : 0}</td>
+          </tr>
+        `;
+      });
+
+      tableHtml += `</tbody></table>`;
+      document.getElementById('table-container').innerHTML = tableHtml;
+
+    }, (error) => {
+      console.error("購入履歴の読み込みエラー:", error);
+      document.getElementById('table-container').innerHTML = "<p class='error-msg'>【エラー】データの読み込みに失敗しました。</p>";
+    });
+  </script>
+</body>
+</html>
