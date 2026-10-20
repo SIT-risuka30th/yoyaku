@@ -268,16 +268,21 @@ function playerMove(dir) {
 }
 
 function playerReset() {
-  const pieces = "ILJOTSZ";
-  player.matrix = createPiece(pieces[(pieces.length * Math.random()) | 0]);
-  player.pos.y = 0;
-  player.pos.x =
-    ((arena[0].length / 2) | 0) - ((player.matrix[0].length / 2) | 0);
-  if (collide(arena, player)) {
-    gameOver = true;
-    startBtn.innerText = "GAME OVER - RESTART";
-    startBtn.style.display = "block";
-  }
+    const pieces = "ILJOTSZ";
+    const randomType = pieces[(pieces.length * Math.random()) | 0];
+    
+    player.type = randomType; // 現在のミノの種類を保存（ホールドで使用するため）
+    player.matrix = createPiece(randomType);
+    player.pos.y = 0;
+    player.pos.x = ((arena[0].length / 2) | 0) - ((player.matrix[0].length / 2) | 0);
+    
+    hasHeld = false; // 新しいミノになったので、ホールドを再度使用可能にする
+
+    if (collide(arena, player)) {
+        gameOver = true;
+        startBtn.innerText = "GAME OVER - RESTART";
+        startBtn.style.display = "block";
+    }
 }
 
 function playerRotate(dir) {
@@ -304,6 +309,48 @@ function rotate(matrix, dir) {
   if (dir > 0) { matrix.forEach(row => row.reverse()); }
   else { matrix.reverse(); }
 }
+
+function playerHold() {
+    if (hasHeld) return; // 1つのミノにつきホールドは1回まで
+
+    const pieces = "ILJOTSZ";
+    // 現在のプレイヤーのミノがどの種類(文字)かを判定
+    let currentType = null;
+    for (let type of pieces) {
+        // createPieceで作ったマトリックスと現在のプレイヤーのマトリックスの形状が一致するか簡易チェック
+        // (簡易的に、最初に見つかった文字、またはplayerReset時にtypeを保持させておくとより確実です)
+    }
+    
+    // ※より確実に動作させるため、playerReset() を少し修正して player.type を保持させるのがスマートです。
+    // 以下は player.type を保持している前提の実装です（後述のplayerReset修正を適用してください）
+    
+    const nextHold = player.type; 
+
+    if (holdPiece === null) {
+        // 初めてのホールド: 現在のミノをホールドに送り、新しいミノを生成
+        holdPiece = nextHold;
+        playerReset(); 
+    } else {
+        // 2回目以降: ホールド内のミノと現在のミノを入れ替える
+        const temp = holdPiece;
+        holdPiece = nextHold;
+        
+        player.type = temp;
+        player.matrix = createPiece(temp);
+        player.pos.y = 0;
+        player.pos.x = ((arena[0].length / 2) | 0) - ((player.matrix[0].length / 2) | 0);
+        
+        if (collide(arena, player)) {
+            gameOver = true;
+            startBtn.innerText = "GAME OVER - RESTART";
+            startBtn.style.display = "block";
+        }
+    }
+
+    hasHeld = true; // このミノでのホールドをロック
+    console.log("現在のホールド:", holdPiece); // デバッグ用（必要に応じて画面に描画してください）
+}
+
 
 // ========== ゲームループ ==========
 let dropCounter = 0;
@@ -350,36 +397,47 @@ const arena = createMatrix(12, 20);
 const player = { pos: { x: 0, y: 0 }, matrix: null, score: 0 };
 let gameOver = true;
 
+let holdPiece = null; // ホールドしているミノの種類 (例: "I", "T")
+let hasHeld = false;  // 現在のミノで既にホールドを使用したかどうかのフラグ
+
 document.addEventListener("keydown", (event) => {
-  if (gameOver) return;
- switch (event.code) {
-    case "KeyA": // Aで左移動
-      playerMove(-1);
-      break;
-    case "KeyD": // Dで右移動
-      playerMove(1);
-      break;
-    case "KeyS": // Sでソフトドロップ
-      playerDrop();
-      break;
-    case "Space": // で時計回りに回転
-      playerRotate(1);
-      break;
-    case "KeyW": // スペースキーでハードドロップ
-      event.preventDefault(); // 画面のスクロールを防止
-      playerHardDrop();
-      break;
-  }
+    if (gameOver) return;
+    switch (event.code) {
+        case "KeyA": // Aで左移動
+            playerMove(-1);
+            break;
+        case "KeyD": // Dで右移動
+            playerMove(1);
+            break;
+        case "KeyS": // Sでソフトドロップ
+            playerDrop();
+            break;
+        case "Space": // スペースで時計回りに回転
+            playerRotate(1);
+            break;
+        case "KeyW": // Wでハードドロップ
+            event.preventDefault();
+            playerHardDrop();
+            break;
+        case "KeyQ": // 【追加】Cキーでホールド
+   
+            event.preventDefault();
+            playerHold();
+            break;
+    }
 });
 
+
 startBtn.addEventListener("click", () => {
-  arena.forEach(row => row.fill(0));
-  player.score = 0;
-  updateScore();
-  gameOver = false;
-  playerReset();
-  startBtn.style.display = "none";
-  update();
+    arena.forEach(row => row.fill(0));
+    player.score = 0;
+    holdPiece = null; // ホールドをクリア
+    hasHeld = false;  // フラグをリセット
+    updateScore();
+    gameOver = false;
+    playerReset();
+    startBtn.style.display = "none";
+    update();
 });
 
 draw();

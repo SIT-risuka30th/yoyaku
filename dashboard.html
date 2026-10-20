@@ -104,7 +104,7 @@
   
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-    import { getFirestore, doc, deleteDoc,onSnapshot, collection, query, addDoc, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+    import { getFirestore, doc, deleteDoc, updateDoc, onSnapshot, collection, query, addDoc, orderBy, serverTimestamp, where, getDocs} from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
     import { getDatabase, ref, onValue} from  "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
 
    const firebaseConfig = {
@@ -173,127 +173,141 @@ onSnapshot(doc(db, "analytics", todayStr), (docSnap) => {
 });
 
         // --- 📦 ② 注文データのリアルタイム監視 ---
-const ordersQuery = query(collection(db, "orders"), orderBy("createdAt", "desc"));
+      const ordersQuery = query(
+            collection(db, "orders"), 
+            where("isDeleted", "!=", true),
+            orderBy("isDeleted", "asc"), // 不等号条件を使う場合、そのフィールドの並び替えが最初に必須です
+            orderBy("createdAt", "desc")
+        );
 
-    // 初回読み込みかどうかを判定するフラグ
-    let isInitialLoad = true;
+        // 初回読み込みかどうかを判定するフラグ
+        let isInitialLoad = true;
 
-    onSnapshot(ordersQuery, (querySnapshot) => {
-        const tableBody = document.getElementById("orderTableBody");
-        if (!tableBody) return;
-        
-        tableBody.innerHTML = "";
-
-        if (querySnapshot.empty) {
-            tableBody.innerHTML = `<tr><td colspan="6" style="padding: 20px; text-align: center; color: #999;">まだ注文はありません。</td></tr>`;
-            isInitialLoad = false; 
-            return;
-        }
-
-        const orderRows = [];
-        let newOrderName = ""; 
-
-        querySnapshot.docChanges().forEach((change) => {
-            if (change.type === "added" && !isInitialLoad) {
-                const data = change.doc.data();
-                newOrderName = data.name || "不明";
-            }
-        });
-
-        if (newOrderName) {
-            if (Notification.permission === "granted") {
-                new Notification("🔔 新しい予約が届きました！", {
-                    body: `${newOrderName} 様からの注文です。`,
-                    icon: "https://flaticon.com" 
-                });
-            }
-        
-            if (audioCtx) {
-                if (audioCtx.state === 'suspended') {
-                    audioCtx.resume();
-                }
-                try {
-                    const playTone = (startTime, duration, frequency) => {
-                        const oscillator = audioCtx.createOscillator();
-                        const gainNode = audioCtx.createGain();
-                        
-                        oscillator.connect(gainNode);
-                        gainNode.connect(audioCtx.destination);
-                        
-                        oscillator.type = 'sine';
-                        oscillator.frequency.setValueAtTime(frequency, startTime);
-                        
-                        gainNode.gain.setValueAtTime(0, startTime);
-                        gainNode.gain.linearRampToValueAtTime(0.15, startTime + 0.02); 
-                        gainNode.gain.setValueAtTime(0.15, startTime + duration - 0.02);
-                        gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
-                        
-                        oscillator.start(startTime);
-                        oscillator.stop(startTime + duration);
-                    };
-
-                    const now = audioCtx.currentTime;
-                    
-                    playTone(now, 0.08, 987.77);       
-                    playTone(now + 0.1, 0.08, 987.77);
-                    playTone(now + 0.2, 0.08, 1318.51); 
-
-                    playTone(now + 0.45, 0.08, 987.77);
-                    playTone(now + 0.55, 0.08, 987.77);
-                    playTone(now + 0.65, 0.08, 1318.51);
-
-                } catch (e) {
-                    console.error("オーディオ再生エラー:", e);
-                }
-            }
-        }
-
-        querySnapshot.forEach((orderDoc) => {
-            const data = orderDoc.data();
-            const docId = orderDoc.id; 
+        onSnapshot(ordersQuery, (querySnapshot) => {
+            const tableBody = document.getElementById("orderTableBody");
+            if (!tableBody) return;
             
-            const gakunen = data.gakunen || "";
-            const className = data.className || "";
-            const number = data.number || "-";
-            const name = data.name || "不明";
-            const items = data.items || "なし";
-            const totalPrice = data.totalPrice ? data.totalPrice.toLocaleString() + "円" : "0円";
+            tableBody.innerHTML = "";
 
-            const userKey = data.userId || `${gakunen}-${className}-${number}`;
-          
-            const rowHTML = `
-                <tr style="border-bottom: 1px solid #eee;">
-                    <td style="padding: 12px 10px; color: #555;">${gakunen} ${className}</td>
-                    <td style="padding: 12px 10px; color: #555;">${number} 番</td>
-                    <td style="padding: 12px 10px; font-weight: bold; color: #333;">${name}</td>
-                    <td style="padding: 12px 10px; color: #666; font-size: 14px; max-width: 400px; word-wrap: break-word;">${items}</td>
-                    <td style="padding: 12px 10px; font-weight: bold; color: #e67e22;">${totalPrice}</td>
-                    <td style="padding: 12px 10px;">
-                        <button class="btn-reset-pin" data-userkey="${userKey}" data-name="${name}" style="background: #f1c40f; color: #333; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-right: 5px;">🔑 リセット</button>
-                        <button class="btn-delete" data-id="${docId}" style="background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">削除</button>
-                    </td>
-                </tr>
-            `;
-            orderRows.push(rowHTML);
-        });
+            if (querySnapshot.empty) {
+                tableBody.innerHTML = `<tr><td colspan="6" style="padding: 20px; text-align: center; color: #999;">まだ注文はありません。</td></tr>`;
+                isInitialLoad = false; 
+                return;
+            }
 
-        tableBody.innerHTML = orderRows.join("");
+            const orderRows = [];
+            let newOrderName = ""; 
 
-        // 削除ボタンのイベント設定
-        const deleteButtons = tableBody.querySelectorAll('.btn-delete');
-        deleteButtons.forEach(button => {
-            button.addEventListener('click', async (e) => {
-                const id = e.target.getAttribute('data-id');
-                if (id && confirm("この注文データを完全に削除してもよろしいですか？")) {
-                    try {
-                        await deleteDoc(doc(db, "orders", id));
-                    } catch (error) {
-                        console.error("削除エラー:", error);
-                        alert("削除に失敗しました。");
-                    }
+            querySnapshot.docChanges().forEach((change) => {
+                if (change.type === "added" && !isInitialLoad) {
+                    const data = change.doc.data();
+                    newOrderName = data.name || "不明";
                 }
             });
-        });
+
+            if (newOrderName) {
+                if (Notification.permission === "granted") {
+                    new Notification("🔔 新しい予約が届きました！", {
+                        body: `${newOrderName} 様からの注文です。`,
+                        icon: "https://flaticon.com" 
+                    });
+                }
+            
+                if (audioCtx) {
+                    if (audioCtx.state === 'suspended') {
+                        audioCtx.resume();
+                    }
+                    try {
+                        const playTone = (startTime, duration, frequency) => {
+                            const oscillator = audioCtx.createOscillator();
+                            const gainNode = audioCtx.createGain();
+                            
+                            oscillator.connect(gainNode);
+                            gainNode.connect(audioCtx.destination);
+                            
+                            oscillator.type = 'sine';
+                            oscillator.frequency.setValueAtTime(frequency, startTime);
+                            
+                            gainNode.gain.setValueAtTime(0, startTime);
+                            gainNode.gain.linearRampToValueAtTime(0.15, startTime + 0.02); 
+                            gainNode.gain.setValueAtTime(0.15, startTime + duration - 0.02);
+                            gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
+                            
+                            oscillator.start(startTime);
+                            oscillator.stop(startTime + duration);
+                        };
+
+                        const now = audioCtx.currentTime;
+                        
+                        playTone(now, 0.08, 987.77);       
+                        playTone(now + 0.1, 0.08, 987.77);
+                        playTone(now + 0.2, 0.08, 1318.51); 
+
+                        playTone(now + 0.45, 0.08, 987.77);
+                        playTone(now + 0.55, 0.08, 987.77);
+                        playTone(now + 0.65, 0.08, 1318.51);
+
+                    } catch (e) {
+                        console.error("オーディオ再生エラー:", e);
+                    }
+                }
+            }
+
+            querySnapshot.forEach((orderDoc) => {
+                const data = orderDoc.data();
+                const docId = orderDoc.id; 
+                
+                const gakunen = data.gakunen || "";
+                const className = data.className || "";
+                const number = data.number || "-";
+                const name = data.name || "不明";
+                const items = data.items || "なし";
+                const totalPrice = data.totalPrice ? data.totalPrice.toLocaleString() + "円" : "0円";
+
+                const userKey = data.userId || `${gakunen}-${className}-${number}`;
+              
+                const rowHTML = `
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 12px 10px; color: #555;">${gakunen} ${className}</td>
+                        <td style="padding: 12px 10px; color: #555;">${number} 番</td>
+                        <td style="padding: 12px 10px; font-weight: bold; color: #333;">${name}</td>
+                        <td style="padding: 12px 10px; color: #666; font-size: 14px; max-width: 400px; word-wrap: break-word;">${items}</td>
+                        <td style="padding: 12px 10px; font-weight: bold; color: #e67e22;">${totalPrice}</td>
+                        <td style="padding: 12px 10px;">
+                            <button class="btn-reset-pin" data-userkey="${userKey}" data-name="${name}" style="background: #f1c40f; color: #333; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-right: 5px;">🔑 リセット</button>
+                            <button class="btn-delete" data-id="${docId}" style="background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">削除</button>
+                        </td>
+                    </tr>
+                `;
+                orderRows.push(rowHTML);
+            });
+
+            tableBody.innerHTML = orderRows.join("");
+
+            // 削除ボタンのイベント設定
+            const deleteButtons = tableBody.querySelectorAll('.btn-delete');
+            deleteButtons.forEach(button => {
+                button.addEventListener('click', async (e) => {
+                    const id = e.target.getAttribute('data-id');
+                    if (id && confirm("この注文データを非表示にしてもよろしいですか？")) {
+                        try {
+                            // 元データを消さずに、非表示フラグ（isDeleted）を true に更新する
+                            const docRef = doc(db, "orders", id);
+                            await updateDoc(docRef, {
+                                isDeleted: true
+                            });
+
+                            // 画面からもすぐに消す
+                            const row = e.target.closest('tr');
+                            if (row) row.remove();
+
+                        } catch (error) {
+                            console.error("非表示エラー:", error);
+                            alert("非表示処理に失敗しました。");
+                        }
+                    }
+                });
+            });
 
         // リセットボタンのイベント設定
         const resetButtons = tableBody.querySelectorAll('.btn-reset-pin');

@@ -405,7 +405,7 @@
                         pin: pinInput,
                         attempts: 0,
                         lockedUntil: null,
-                        createdAt: serverTimestamp()
+                        createdAt: serverTimestamp(),
                     });
                     alert("【初回確認】この番号の暗証番号として登録しました。次回以降も同じ暗証番号を入力してください。");
                 }
@@ -433,7 +433,8 @@
                     totalPrice: allTotal,     
                     userId: userKey, 
                     userEmail: "guest@example.com",   
-                    createdAt: serverTimestamp() 
+                    createdAt: serverTimestamp() ,
+                    isDeleted: false
                 });
 
                 alert("注文データを送信しました！購買でお持ちしています。");
