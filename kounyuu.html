@@ -84,6 +84,16 @@
                     <td id="displayD5" class="data-text">未入力</td>
                     <td id="priceD5" class="price-text">0円</td>
                 </tr>
+                <tr id="rowD6">
+                    <td>とろけるミルクティー</td>
+                    <td id="displayD6" class="data-text">未入力</td>
+                    <td id="priceD6" class="price-text">0円</td>
+                </tr>
+                <tr id="rowD7">
+                    <td>とろけるカフェオレ</td>
+                    <td id="displayD7" class="data-text">未入力</td>
+                    <td id="priceD7" class="price-text">0円</td>
+                </tr>
             </tbody>
         </table>
 
@@ -228,6 +238,8 @@
     const PRICE_D3 = 150;
     const PRICE_D4 = 150;
     const PRICE_D5 = 180;
+    const PRICE_D6 = 170;
+    const PRICE_D7 = 170;
 
     // 3. 表示と非表示、テキスト代入をまとめた関数
     function handleRow(rowId, countId, priceId, count, price) {
@@ -254,6 +266,8 @@
     const rawD3 = localStorage.getItem('inputD3') || "";
     const rawD4 = localStorage.getItem('inputD4') || "";
     const rawD5 = localStorage.getItem('inputD5') || "";
+    const rawD6 = localStorage.getItem('inputD6') || "";
+    const rawD7 = localStorage.getItem('inputD7') || "";
 
     const savedName = parseInt(rawF1.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
     const savedMsg = parseInt(rawF2.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
@@ -265,6 +279,8 @@
     const savedD3 = parseInt(rawD3.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
     const savedD4 = parseInt(rawD4.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
     const savedD5 = parseInt(rawD5.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
+    const savedD6 = parseInt(rawD6.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
+    const savedD7 = parseInt(rawD7.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
 
     const totalF1 = savedName * PRICE_F1;
     const totalF2 = savedMsg * PRICE_F2;
@@ -276,6 +292,8 @@
     const totalD3 = savedD3 * PRICE_D3;
     const totalD4 = savedD4 * PRICE_D4;
     const totalD5 = savedD5 * PRICE_D5;
+    const totalD6 = savedD6 * PRICE_D6;
+    const totalD7 = savedD7 * PRICE_D7;
 
     handleRow('rowName', 'displayName', 'priceName', savedName, totalF1);
     handleRow('rowMsg', 'displayMsg', 'priceMsg', savedMsg, totalF2);
@@ -287,16 +305,18 @@
     handleRow('rowD3', 'displayD3', 'priceD3', savedD3, totalD3);
     handleRow('rowD4', 'displayD4', 'priceD4', savedD4, totalD4);
     handleRow('rowD5', 'displayD5', 'priceD5', savedD5, totalD5);
+    handleRow('rowD6', 'displayD6', 'priceD6', savedD6, totalD6);
+    handleRow('rowD7', 'displayD7', 'priceD7', savedD7, totalD7);
 
     const totalPriceEl = document.getElementById('totalPrice');
     if (totalPriceEl) {
-        totalPriceEl.textContent = (totalF1 + totalF2 + totalF3 + totalF3_2 + totalF4 + totalD1 + totalD2 + totalD3 + totalD4 + totalD5).toLocaleString();
+        totalPriceEl.textContent = (totalF1 + totalF2 + totalF3 + totalF3_2 + totalF4 + totalD1 + totalD2 + totalD3 + totalD4 + totalD5 + totalD6 +totalD7).toLocaleString();
     }
 
      const mailBtn = document.getElementById('mailBtn');
     if (mailBtn) {
         mailBtn.addEventListener('click', async () => {
-            const allTotal = totalF1 + totalF2 + totalF3 + totalF3_2 + totalF4 + totalD1 + totalD2 + totalD3 + totalD4 + totalD5;
+            const allTotal = totalF1 + totalF2 + totalF3 + totalF3_2 + totalF4 + totalD1 + totalD2 + totalD3 + totalD4 + totalD5 + totalD6 + totalD7;
 
             if (allTotal === 0) {
                 alert("商品が選択されていません。個数を入力してください。");
@@ -401,6 +421,8 @@
                 if (savedD3 > 0) itemDetails += `きりっと果実スカッシュ:${savedD3}個`;
                 if (savedD4 > 0) itemDetails += `やさしい麦茶:${savedD4}個`;
                 if (savedD5 > 0) itemDetails += `きりっとヨグ:${savedD5}個`;
+                if (savedD6 > 0) itemDetails += `とろけるミルクティー${savedD6}個`;
+                if (savedD7 > 0) itemDetails += `とろけるカフェオレ${savedD7}個`;
 
                 await addDoc(collection(db, "orders"), {
                     gakunen: gakunenInput,
@@ -429,7 +451,7 @@
     const clearBtn = document.getElementById('clearBtn');
     if (clearBtn) {
         clearBtn.addEventListener('click', () => {
-            const itemsToClear = ['inputName', 'inputMsg', 'inputF3', 'inputF3-2', 'inputF4', 'inputD1', 'inputD2', 'inputD3', 'inputD4', 'inputD5'];
+            const itemsToClear = ['inputName', 'inputMsg', 'inputF3', 'inputF3-2', 'inputF4', 'inputD1', 'inputD2', 'inputD3', 'inputD4', 'inputD5', 'inputD6', 'inputD7'];
             itemsToClear.forEach(key => localStorage.removeItem(key));
             location.reload();
         });

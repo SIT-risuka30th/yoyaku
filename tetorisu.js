@@ -352,13 +352,23 @@ let gameOver = true;
 
 document.addEventListener("keydown", (event) => {
   if (gameOver) return;
-  if (event.code === "ArrowLeft") { playerMove(-1); }
-  else if (event.code === "ArrowRight") { playerMove(1); }
-  else if (event.code === "ArrowDown") { playerDrop(); }
-  else if (event.code === "ArrowUp") { playerHardDrop(); }
-  else if (event.code === "Space") {
-    event.preventDefault();
-    playerRotate(1);
+ switch (event.code) {
+    case "KeyA": // Aで左移動
+      playerMove(-1);
+      break;
+    case "KeyD": // Dで右移動
+      playerMove(1);
+      break;
+    case "KeyS": // Sでソフトドロップ
+      playerDrop();
+      break;
+    case "Space": // で時計回りに回転
+      playerRotate(1);
+      break;
+    case "KeyW": // スペースキーでハードドロップ
+      event.preventDefault(); // 画面のスクロールを防止
+      playerHardDrop();
+      break;
   }
 });
 

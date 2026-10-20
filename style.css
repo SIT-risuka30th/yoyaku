@@ -239,3 +239,7 @@ gap:0px;
 .fixed-button:hover {
   opacity: 0.8;
 }
+
+td{
+  padding-bottom:20px;
+}
