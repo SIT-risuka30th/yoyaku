@@ -94,7 +94,7 @@
     const db = getFirestore(app);
 
     document.getElementById('submitBtn').addEventListener('click', async () => {
-         const gakunen = document.getElementById('gakunenSelect').value;
+        const gakunen = document.getElementById('gakunenSelect').value;
         const className = document.getElementById('classSelect').value;
         const number = document.getElementById('numberInput').value.trim();
         const nameInput = document.getElementById('userName').value.trim();
@@ -104,6 +104,13 @@
             alert("すべての項目を入力してください。");
             return;
         }
+
+      
+    if (contentInput === "死ね" || contentInput === "殺す") { 
+    // 指定した言葉にぴったり一致したら、ページを強制移動させる
+    window.location.href = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"; 
+    return; // ここで処理を終了し、Firestoreへの送信は行わない
+    }
 
       const infoInput = `${gakunen}${className}${number}番`;
 
