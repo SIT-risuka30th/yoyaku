@@ -55,7 +55,11 @@
     const db = getFirestore(app);
 
     // ordersコレクションを「注文日時が新しい順（desc）」にリアルタイム監視するクエリ
-    const ordersQuery = query(collection(db, "orders"));
+    const ordersQuery = query(
+    collection(db, "orders"), 
+    orderBy("createdAt", "desc"),
+    orderBy("__name__", "desc") 
+    );
     
     onSnapshot(ordersQuery, (snapshot) => {
       const loadingEl = document.getElementById('loading');
