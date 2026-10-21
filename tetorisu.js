@@ -3,7 +3,13 @@ const context = canvas.getContext("2d");
 const scoreElement = document.getElementById("score");
 const startBtn = document.getElementById("start-btn");
 
-context.scale(20, 20);
+// 【追加】ホールド用キャンバスの取得
+const holdCanvas = document.getElementById("hold-canvas");
+const holdContext = holdCanvas.getContext("2d");
+
+// 1マスのサイズを 20 から 30 に拡大
+context.scale(30, 30);
+holdContext.scale(30, 30);
 
 // ========== パーティクルシステム ==========
 class Particle {
@@ -96,7 +102,7 @@ function completeClearRows() {
     rowCount *= 2;
   });
   sortedRows.forEach(() => {
-    arena.unshift(new Array(arena[0].length).fill(0));
+    arena.unshift(new Array(arena[0].length).fill(0)); // 横幅に合わせてリセット
   });
   clearingRows = [];
 }
@@ -158,18 +164,18 @@ function draw() {
   context.fillRect(0, 0, canvas.width, canvas.height);
 
   context.lineWidth = 0.05;
-  context.strokeStyle = "#333";
-  for (let x = 0; x < 12; ++x) {
+  context.strokeStyle = "#222"; // 目立たないグリッド線
+  for (let x = 0; x < 10; ++x) { // 10マスに変更
     context.beginPath(); context.moveTo(x, 0);
     context.lineTo(x, 20); context.stroke();
   }
   for (let y = 0; y < 20; ++y) {
     context.beginPath(); context.moveTo(0, y);
-    context.lineTo(12, y); context.stroke();
+    context.lineTo(10, y); context.stroke();
   }
 
-  drawMatrix(arena, { x: 0, y: 0 });
-  drawMatrix(player.matrix, player.pos);
+  drawMatrix(context, arena, { x: 0, y: 0 });
+  drawMatrix(context, player.matrix, player.pos);
 
   if (clearAnimation > 0) {
     const flash = Math.sin(clearAnimation * 0.5) * 0.5 + 0.5;
@@ -177,7 +183,7 @@ function draw() {
       context.save();
       context.globalAlpha = flash;
       context.fillStyle = "#ffffff";
-      context.fillRect(0, y, 12, 1);
+      context.fillRect(0, y, 10, 1); // 10マス幅
       context.restore();
     });
   }
@@ -192,30 +198,47 @@ function draw() {
     context.shadowColor = "#FFD700";
     context.font = "bold 1px Arial";
     context.textAlign = "center";
-    context.fillText(comboText.text, 6, comboText.y);
+    context.fillText(comboText.text, 5, comboText.y); // 中央を 5 に調整
     context.restore();
   }
 
   context.restore();
+
+  // ホールド画面の描画を呼び出す
+  drawHold();
 }
 
-function drawMatrix(matrix, offset) {
+// 【追加】ホールド表示用の描画関数
+function drawHold() {
+  holdContext.fillStyle = "#050505";
+  holdContext.fillRect(0, 0, holdCanvas.width, holdCanvas.height);
+
+  if (holdPiece !== null) {
+    const matrix = createPiece(holdPiece);
+    // 中央に寄せるためのオフセット計算
+    const offsetX = (4 - matrix[0].length) / 2;
+    const offsetY = (4 - matrix.length) / 2;
+    drawMatrix(holdContext, matrix, { x: offsetX, y: offsetY });
+  }
+}
+
+function drawMatrix(ctx, matrix, offset) {
   matrix.forEach((row, y) => {
     row.forEach((value, x) => {
       if (value !== 0) {
         const px = x + offset.x;
         const py = y + offset.y;
-        context.save();
-        context.shadowBlur = 0.5;
-        context.shadowColor = colors[value];
-        context.fillStyle = colors[value];
-        context.fillRect(px, py, 1, 1);
-        context.restore();
-        context.lineWidth = 0.05;
-        context.strokeStyle = "rgba(255, 255, 255, 0.5)";
-        context.strokeRect(px, py, 1, 1);
-        context.fillStyle = "rgba(255, 255, 255, 0.3)";
-        context.fillRect(px + 0.1, py + 0.1, 0.3, 0.3);
+        ctx.save();
+        ctx.shadowBlur = 0.5;
+        ctx.shadowColor = colors[value];
+        ctx.fillStyle = colors[value];
+        ctx.fillRect(px, py, 1, 1);
+        ctx.restore();
+        ctx.lineWidth = 0.05;
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+        ctx.strokeRect(px, py, 1, 1);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+        ctx.fillRect(px + 0.1, py + 0.1, 0.3, 0.3);
       }
     });
   });
@@ -271,12 +294,12 @@ function playerReset() {
     const pieces = "ILJOTSZ";
     const randomType = pieces[(pieces.length * Math.random()) | 0];
     
-    player.type = randomType; // 現在のミノの種類を保存（ホールドで使用するため）
+    player.type = randomType;
     player.matrix = createPiece(randomType);
     player.pos.y = 0;
-    player.pos.x = ((arena[0].length / 2) | 0) - ((player.matrix[0].length / 2) | 0);
+    player.pos.x = ((arena[0].length / 2) | 0) - ((player.matrix[0].length / 2) | 0); // 10マスの幅ベースで計算
     
-    hasHeld = false; // 新しいミノになったので、ホールドを再度使用可能にする
+    hasHeld = false;
 
     if (collide(arena, player)) {
         gameOver = true;
@@ -311,27 +334,14 @@ function rotate(matrix, dir) {
 }
 
 function playerHold() {
-    if (hasHeld) return; // 1つのミノにつきホールドは1回まで
+    if (hasHeld) return;
 
-    const pieces = "ILJOTSZ";
-    // 現在のプレイヤーのミノがどの種類(文字)かを判定
-    let currentType = null;
-    for (let type of pieces) {
-        // createPieceで作ったマトリックスと現在のプレイヤーのマトリックスの形状が一致するか簡易チェック
-        // (簡易的に、最初に見つかった文字、またはplayerReset時にtypeを保持させておくとより確実です)
-    }
-    
-    // ※より確実に動作させるため、playerReset() を少し修正して player.type を保持させるのがスマートです。
-    // 以下は player.type を保持している前提の実装です（後述のplayerReset修正を適用してください）
-    
     const nextHold = player.type; 
 
     if (holdPiece === null) {
-        // 初めてのホールド: 現在のミノをホールドに送り、新しいミノを生成
         holdPiece = nextHold;
         playerReset(); 
     } else {
-        // 2回目以降: ホールド内のミノと現在のミノを入れ替える
         const temp = holdPiece;
         holdPiece = nextHold;
         
@@ -347,8 +357,7 @@ function playerHold() {
         }
     }
 
-    hasHeld = true; // このミノでのホールドをロック
-    console.log("現在のホールド:", holdPiece); // デバッグ用（必要に応じて画面に描画してください）
+    hasHeld = true;
 }
 
 
@@ -389,55 +398,50 @@ function update(time = 0) {
 }
 
 function updateScore() {
-  scoreElement.innerText = player.score;
+scoreElement.innerText = player.score;
 }
-
 // ========== 初期化 ==========
-const arena = createMatrix(12, 20);
-const player = { pos: { x: 0, y: 0 }, matrix: null, score: 0 };
+const arena = createMatrix(10, 20); // 横を10マスに変更
+const player = { pos: { x: 0, y: 0 }, matrix: null, score: 0, type: null };
 let gameOver = true;
-
-let holdPiece = null; // ホールドしているミノの種類 (例: "I", "T")
-let hasHeld = false;  // 現在のミノで既にホールドを使用したかどうかのフラグ
-
+let holdPiece = null;
+let hasHeld = false;
 document.addEventListener("keydown", (event) => {
-    if (gameOver) return;
-    switch (event.code) {
-        case "KeyA": // Aで左移動
-            playerMove(-1);
-            break;
-        case "KeyD": // Dで右移動
-            playerMove(1);
-            break;
-        case "KeyS": // Sでソフトドロップ
-            playerDrop();
-            break;
-        case "Space": // スペースで時計回りに回転
-            playerRotate(1);
-            break;
-        case "KeyW": // Wでハードドロップ
-            event.preventDefault();
-            playerHardDrop();
-            break;
-        case "KeyQ": // 【追加】Cキーでホールド
-   
-            event.preventDefault();
-            playerHold();
-            break;
-    }
+if (gameOver) return;
+switch (event.code) {
+case "KeyA":
+playerMove(-1);
+break;
+case "KeyD":
+playerMove(1);
+break;
+case "KeyS":
+playerDrop();
+break;
+case "Space":
+playerRotate(1);
+break;
+case "KeyW":
+event.preventDefault();
+playerHardDrop();
+break;
+case "KeyQ":
+event.preventDefault();
+playerHold();
+break;
+}
 });
-
-
 startBtn.addEventListener("click", () => {
-    arena.forEach(row => row.fill(0));
-    player.score = 0;
-    holdPiece = null; // ホールドをクリア
-    hasHeld = false;  // フラグをリセット
-    updateScore();
-    gameOver = false;
-    playerReset();
-    startBtn.style.display = "none";
-    update();
+arena.forEach(row => row.fill(0));
+player.score = 0;
+holdPiece = null;
+hasHeld = false;
+updateScore();
+gameOver = false;
+playerReset();
+startBtn.style.display = "none";
+// 落下バグ防止：開始時間を現在のタイミングにリセット
+lastTime = performance.now();
+update();
 });
-
 draw();

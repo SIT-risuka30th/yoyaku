@@ -9,26 +9,36 @@
 </head>
 
 <body>
-    <div class="game-container" style="display: flex; gap: 20px; align-items: flex-start;">
+ <body>
+    <div class="game-container">
+        <!-- 左側：ゲーム情報とホールド -->
         <div class="game-info">
             <h1>TETRIS</h1>
             
+            <!-- 【追加】ホールドボックス -->
+            <div class="hold-box">
+                <h2>HOLD</h2>
+                <canvas id="hold-canvas" width="120" height="120"></canvas>
+            </div>
+
             <div class="score-box">
                 <h2>SCORE</h2>
                 <div id="score">0</div>
-                
             </div>
+            
             <div class="controls-info">
                 <h3>Controls</h3>
                 <p>A D : Move</p>
                 <p>Space : Rotate</p>
                 <p>S : Soft Drop</p>
                 <p>W : Hard Drop</p>
-                <p>Q : hold</p>
+                <p>Q : Hold</p>
             </div>
             <button id="start-btn">START GAME</button>
         </div>
-        <canvas id="tetris" width="240" height="400"></canvas>
+        
+        <!-- 右側：メイン画面（サイズを300x600に拡大） -->
+        <canvas id="tetris" width="300" height="600"></canvas>
     </div>
     <script src="tetorisu.js"></script>
 </body>
