@@ -67,15 +67,18 @@ button {
 
 footer {
 width: 100%;
-min-height:130px;
+min-height:100px;
 margin-top:20px;
-height:130px;
+height:100px;
   background-color: #4169e1;
   color: white;
 }
 
 .footer-content{
-  text-align:right;
+  text-align: right;
+  position:absolute;
+  right:0px;
+  bottom:10px;
   margin-right:10px;
 }
 
