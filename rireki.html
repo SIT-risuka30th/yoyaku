@@ -22,8 +22,10 @@
   <h2><a href="dashboard.html">ダッシュボードに戻る</a></h2>
   <h1>【管理者用】過去の購入履歴一覧</h1>
   
-  <div id="loading" class="loading">Firestoreから履歴を読み込み中...</div>
-  <div id="table-container"></div>
+<div id="table-container">
+        <div id="loading" class="loading">Firestoreから履歴を読み込み中...</div>
+    </div>
+
 
     <style>
     body { font-family: sans-serif; margin: 30px; background-color: #f8f9fa; }
@@ -38,83 +40,116 @@
 
   <!-- 共有いただいたコードと同じバージョン(11.0.0)のSDKを使用 -->
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-    import { getFirestore, collection, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+        import { getFirestore, collection, query, where, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 
-    // 共有いただいたConfig情報をそのまま適用しています
-    const firebaseConfig = {
-        apiKey: "AIzaSyBtLHgM6RzCU_grTElSqLCmsaRu4rVe-4o", 
-        authDomain: "://firebaseapp.com", 
-        projectId: "koubai-7b6a6", 
-        storageBucket: "koubai-7b6a6.firebasetorage.app", 
-        messagingSenderId: "934504714342", 
-        appId: "1:934504714342:web:e160ada63fcfcd906c5da7"
-    };
+        const firebaseConfig = {
+            apiKey: "AIzaSyBtLHgM6RzCU_grTElSqLCmsaRu4rVe-4o", 
+            authDomain: "koubai-7b6a6.firebaseapp.com", // ドメイン切れを補完
+            projectId: "koubai-7b6a6", 
+            storageBucket: "koubai-7b6a6.firebasetorage.app", 
+            messagingSenderId: "934504714342", 
+            appId: "1:934504714342:web:e160ada63fcfcd906c5da7"
+        };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app); 
+        const db = getFirestore(app);
 
-    // ordersコレクションを「注文日時が新しい順（desc）」にリアルタイム監視するクエリ
-    const ordersQuery = query(
-    collection(db, "orders"), 
-    orderBy("createdAt", "desc"),
-    orderBy("__name__", "desc") 
-    );
-    
-    onSnapshot(ordersQuery, (snapshot) => {
-      const loadingEl = document.getElementById('loading');
-      if (loadingEl) loadingEl.style.display = 'none';
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                console.log("履歴ページ接続完了。UID:", user.uid);
+                
+                // 🔑 自分のUIDの注文データだけを絞り込んで取得するクエリ
+                const historyQuery = query(
+                    collection(db, "orders"),
+                    where("userId", "==", user.uid),
+                    orderBy("orderDate", "desc")
+                );
 
-      if (snapshot.empty) {
-        document.getElementById('table-container').innerHTML = "<p>まだ注文データ（購入履歴）はありません。</p>";
-        return;
-      }
+                const container = document.getElementById("table-container");
 
-      // テーブルの見出し（ヘッダー）
-      let tableHtml = `
-        <table>
-          <thead>
-            <tr>
-              <th>注文日時</th>
-              <th>クラス（学年-組-番号）</th>
-              <th>氏名</th>
-              <th>注文内容</th>
-              <th>合計金額</th>
-            </tr>
-          </thead>
-          <tbody>
-      `;
+                // リアルタイムに履歴を監視して画面に出す
+                onSnapshot(historyQuery, (querySnapshot) => {
+                    if (!container) return;
 
-      // 取得したデータをループ処理してテーブルの行を組み立てる
-      snapshot.forEach((doc) => {
-        const order = doc.data();
+                    // 履歴が空っぽだった場合の処理
+                    if (querySnapshot.empty) {
+                        container.innerHTML = `<div class="no-data">過去のご注文履歴はありません。</div>`;
+                        return;
+                    }
 
-        // FirestoreのserverTimestamp(生データ)を、日本時間の読みやすい文字列に変える処理
-        let formattedDate = "日時不明";
-        if (order.createdAt) {
-          // 注文直後は一時的にnullになることがあるため存在チェック
-          const dateObj = order.createdAt.toDate();
-          formattedDate = dateObj.toLocaleString('ja-JP');
-        }
+                    // 💡 テーブルの骨組みを生成
+                    let tableHTML = `
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>注文日時</th>
+                                    <th>お名前</th>
+                                    <th>注文内容</th>
+                                    <th>ステータス</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
 
-        tableHtml += `
-          <tr>
-            <td>${formattedDate}</td>
-            <td>${order.gakunen || ''} ${order.className || ''} ${order.number || ''}番</td>
-            <td>${order.name || ''}</td>
-            <td>${order.items || 'なし'}</td>
-            <td>¥${order.totalPrice ? order.totalPrice.toLocaleString() : 0}</td>
-          </tr>
-        `;
-      });
+                    // 届いたデータを1行ずつ組み立てる
+                    querySnapshot.forEach((docSnap) => {
+                        const order = docSnap.data();
+                        
+                        // タイムスタンプを読みやすい日付文字列に変換
+                        let dateStr = "---";
+                        if (order.orderDate) {
+                            dateStr = order.orderDate.toDate().toLocaleString('ja-JP', {
+                                year: 'numeric', month: '2-digit', day: '2-digit',
+                                hour: '2-digit', minute: '2-digit'
+                            });
+                        } else if (order.createdAt) { // 予備でcreatedAtも判定
+                            dateStr = order.createdAt.toDate().toLocaleString('ja-JP');
+                        }
 
-      tableHtml += `</tbody></table>`;
-      document.getElementById('table-container').innerHTML = tableHtml;
+                        const name = order.name || "未入力";
+                        const items = order.items || "なし";
+                        
+                        // ステータスの日本語化
+                        let statusText = "受付中";
+                        if (order.status === "pending") statusText = "⏳ 受付中";
+                        if (order.status === "completed") statusText = "✅ 渡済";
 
-    }, (error) => {
-      console.error("購入履歴の読み込みエラー:", error);
-      document.getElementById('table-container').innerHTML = "<p class='error-msg'>【エラー】データの読み込みに失敗しました。</p>";
-    });
-  </script>
+                        tableHTML += `
+                            <tr>
+                                <td>${dateStr}</td>
+                                <td><strong>${name}</strong></td>
+                                <td style="font-size: 14px; max-width: 300px; word-wrap: break-word;">${items}</td>
+                                <td>${statusText}</td>
+                            </tr>
+                        `;
+                    });
+
+                    tableHTML += `
+                            </tbody>
+                        </table>
+                    `;
+
+                    // 画面に一括で反映（これで「読み込み中...」が消えます）
+                    container.innerHTML = tableHTML;
+
+                }, (error) => {
+                    console.error("購入履歴の読み込みエラー:", error);
+                    if (container) {
+                        container.innerHTML = `<div class="no-data" style="color: red;">履歴の読み込みに失敗しました。</div>`;
+                    }
+                });
+
+            } else {
+                try {
+                    await signInAnonymously(auth);
+                } catch (error) {
+                    console.error("匿名ログイン失敗:", error);
+                }
+            }
+        }); 
+         </script>
 </body>
 </html>
