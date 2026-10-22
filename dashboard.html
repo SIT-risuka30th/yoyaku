@@ -106,6 +106,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
     import { getFirestore, doc, deleteDoc, updateDoc, onSnapshot, collection, query, addDoc, orderBy, serverTimestamp, where, getDocs} from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
     import { getDatabase, ref, onValue} from  "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
 
    const firebaseConfig = {
             apiKey: "AIzaSyBtLHgM6RzCU_grTElSqLCmsaRu4rVe-4o", 
@@ -116,202 +117,214 @@
             appId: "1:934504714342:web:e160ada63fcfcd906c5da7"
         };
 
-        // 3. 初期化
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const rtdb = getDatabase(app);
+ // 初期化
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const rtdb = getDatabase(app);
+const auth = getAuth(app); // ⭕ authオブジェクトの定義
 
-   let audioCtx = null;
+let audioCtx = null;
 
-    // 画面が最初にクリックされたらAudioContextを生成・有効化する
-    window.addEventListener('click', () => {
-        if (!audioCtx) {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        } else if (audioCtx.state === 'suspended') {
-            audioCtx.resume();
+// 画面が最初にクリックされたらAudioContextを生成・有効化する
+window.addEventListener('click', () => {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    } else if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+}, { once: true });
+
+if (Notification.permission === "default") {
+    Notification.requestPermission().then(permission => {
+        if (permission === "granted") {
+            console.log("通知が許可されました！");
         }
-    }, { once: true }); // 最初の一回だけ実行
+    });
+}
 
-    if (Notification.permission === "default") {
-        Notification.requestPermission().then(permission => {
-            if (permission === "granted") {
-                console.log("通知が許可されました！");
+// ==========================================
+// 🔒 ログイン状態を監視し、確認後に全機能を開始する
+// ==========================================
+onAuthStateChanged(auth, (user) => {
+    if (user) {
+        console.log("管理者としてログイン確認が取れました！UID:", user.uid);
+        
+        // ログインが確認できてから、すべてのデータ監視をスタートさせる
+        startOnlineUsersCounter();
+        startVisitorCounter();
+        startOrdersMonitoring();
+        startEnquiriesMonitoring();
+        startNewsMonitoring();
+        setupNewsForm();
+    } else {
+        // 未ログイン状態なら、エラーを起こさず即座にログイン画面へ戻す
+        alert("ログインが必要です。");
+        window.location.href = "login.html"; // 必要に応じてあなたのログインHTML名に変えてください
+    }
+});
+
+// --- 🌐 同時滞在者数カウント ---
+function startOnlineUsersCounter() {
+    const onlineUsersRef = ref(rtdb, 'online_users');
+    onValue(onlineUsersRef, (snapshot) => {
+        const currentOnlineEl = document.getElementById("currentOnlineCount");
+        if (!currentOnlineEl) return;
+
+        if (snapshot.exists()) {
+            const onlineCount = Object.keys(snapshot.val()).length;
+            currentOnlineEl.textContent = onlineCount;
+        } else {
+            currentOnlineEl.textContent = "0";
+        }
+    }, (error) => {
+        console.error("同時滞在者数カウントエラー:", error);
+    });
+}
+
+// --- 📊 ① アクセスカウンターのリアルタイム監視 ---
+function startVisitorCounter() {
+    const todayStr = new Date().toISOString().split('T')[0];
+    onSnapshot(doc(db, "analytics", todayStr), (docSnap) => {
+        const viewCountEl = document.getElementById("viewCount");
+        if (!viewCountEl) return;
+
+        if (docSnap.exists() && docSnap.data().views !== undefined) {
+            viewCountEl.textContent = docSnap.data().views;
+        } else {
+            viewCountEl.textContent = "0";
+        }
+    }, (error) => {
+        console.error("今日の訪問者数カウンターエラー:", error);
+    });
+}
+
+// --- 📦 ② 注文データのリアルタイム監視 ---
+function startOrdersMonitoring() {
+    const ordersQuery = query(
+        collection(db, "orders"), 
+        where("isDeleted", "!=", true),
+        orderBy("isDeleted", "asc"), 
+        orderBy("createdAt", "desc")
+    );
+
+    let isInitialLoad = true;
+
+    onSnapshot(ordersQuery, (querySnapshot) => {
+        const tableBody = document.getElementById("orderTableBody");
+        if (!tableBody) return;
+        
+        tableBody.innerHTML = "";
+
+        if (querySnapshot.empty) {
+            tableBody.innerHTML = `<tr><td colspan="6" style="padding: 20px; text-align: center; color: #999;">まだ注文はありません。</td></tr>`;
+            isInitialLoad = false; 
+            return;
+        }
+
+        const orderRows = [];
+        let newOrderName = ""; 
+
+        querySnapshot.docChanges().forEach((change) => {
+            if (change.type === "added" && !isInitialLoad) {
+                const data = change.doc.data();
+                newOrderName = data.name || "不明";
             }
         });
-    }
 
-        const onlineUsersRef = ref(rtdb, 'online_users');
-onValue(onlineUsersRef, (snapshot) => {
-    const currentOnlineEl = document.getElementById("currentOnlineCount");
-    if (!currentOnlineEl) return;
-
-    if (snapshot.exists()) {
-        // online_users の中にある子要素（ユーザー要素）の数を数える
-        const onlineCount = Object.keys(snapshot.val()).length;
-        currentOnlineEl.textContent = onlineCount;
-    } else {
-        currentOnlineEl.textContent = "0"; // 誰もいないとき
-    }
-}, (error) => {
-    console.error("同時滞在者数カウントエラー:", error);
-});
-
-        // --- 📊 ① アクセスカウンターのリアルタイム監視 ---
-    const todayStr = new Date().toISOString().split('T')[0];
-
-onSnapshot(doc(db, "analytics", todayStr), (docSnap) => {
-    const viewCountEl = document.getElementById("viewCount");
-    if (!viewCountEl) return;
-
-    if (docSnap.exists() && docSnap.data().views !== undefined) {
-        viewCountEl.textContent = docSnap.data().views;
-    } else {
-        viewCountEl.textContent = "0"; // 今日まだ誰も来ていないとき
-    }
-}, (error) => {
-    console.error("今日の訪問者数カウンターエラー:", error);
-});
-
-        // --- 📦 ② 注文データのリアルタイム監視 ---
-      const ordersQuery = query(
-            collection(db, "orders"), 
-            where("isDeleted", "!=", true),
-            orderBy("isDeleted", "asc"), // 不等号条件を使う場合、そのフィールドの並び替えが最初に必須です
-            orderBy("createdAt", "desc")
-        );
-
-        // 初回読み込みかどうかを判定するフラグ
-        let isInitialLoad = true;
-
-        onSnapshot(ordersQuery, (querySnapshot) => {
-            const tableBody = document.getElementById("orderTableBody");
-            if (!tableBody) return;
-            
-            tableBody.innerHTML = "";
-
-            if (querySnapshot.empty) {
-                tableBody.innerHTML = `<tr><td colspan="6" style="padding: 20px; text-align: center; color: #999;">まだ注文はありません。</td></tr>`;
-                isInitialLoad = false; 
-                return;
-            }
-
-            const orderRows = [];
-            let newOrderName = ""; 
-
-            querySnapshot.docChanges().forEach((change) => {
-                if (change.type === "added" && !isInitialLoad) {
-                    const data = change.doc.data();
-                    newOrderName = data.name || "不明";
-                }
-            });
-
-            if (newOrderName) {
-                if (Notification.permission === "granted") {
-                    new Notification("🔔 新しい予約が届きました！", {
-                        body: `${newOrderName} 様からの注文です。`,
-                        icon: "https://flaticon.com" 
-                    });
-                }
-            
-                if (audioCtx) {
-                    if (audioCtx.state === 'suspended') {
-                        audioCtx.resume();
-                    }
-                    try {
-                        const playTone = (startTime, duration, frequency) => {
-                            const oscillator = audioCtx.createOscillator();
-                            const gainNode = audioCtx.createGain();
-                            
-                            oscillator.connect(gainNode);
-                            gainNode.connect(audioCtx.destination);
-                            
-                            oscillator.type = 'sine';
-                            oscillator.frequency.setValueAtTime(frequency, startTime);
-                            
-                            gainNode.gain.setValueAtTime(0, startTime);
-                            gainNode.gain.linearRampToValueAtTime(0.15, startTime + 0.02); 
-                            gainNode.gain.setValueAtTime(0.15, startTime + duration - 0.02);
-                            gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
-                            
-                            oscillator.start(startTime);
-                            oscillator.stop(startTime + duration);
-                        };
-
-                        const now = audioCtx.currentTime;
-                        
-                        playTone(now, 0.08, 987.77);       
-                        playTone(now + 0.1, 0.08, 987.77);
-                        playTone(now + 0.2, 0.08, 1318.51); 
-
-                        playTone(now + 0.45, 0.08, 987.77);
-                        playTone(now + 0.55, 0.08, 987.77);
-                        playTone(now + 0.65, 0.08, 1318.51);
-
-                    } catch (e) {
-                        console.error("オーディオ再生エラー:", e);
-                    }
-                }
-            }
-
-            querySnapshot.forEach((orderDoc) => {
-                const data = orderDoc.data();
-                const docId = orderDoc.id; 
-                
-                const gakunen = data.gakunen || "";
-                const className = data.className || "";
-                const number = data.number || "-";
-                const name = data.name || "不明";
-                const items = data.items || "なし";
-                const totalPrice = data.totalPrice ? data.totalPrice.toLocaleString() + "円" : "0円";
-
-                const userKey = data.userId || `${gakunen}-${className}-${number}`;
-              
-                const rowHTML = `
-                    <tr style="border-bottom: 1px solid #eee;">
-                        <td style="padding: 12px 10px; color: #555;">${gakunen} ${className}</td>
-                        <td style="padding: 12px 10px; color: #555;">${number} 番</td>
-                        <td style="padding: 12px 10px; font-weight: bold; color: #333;">${name}</td>
-                        <td style="padding: 12px 10px; color: #666; font-size: 14px; max-width: 400px; word-wrap: break-word;">${items}</td>
-                        <td style="padding: 12px 10px; font-weight: bold; color: #e67e22;">${totalPrice}</td>
-                        <td style="padding: 12px 10px;">
-                            <button class="btn-reset-pin" data-userkey="${userKey}" data-name="${name}" style="background: #f1c40f; color: #333; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-right: 5px;">🔑 リセット</button>
-                            <button class="btn-delete" data-id="${docId}" style="background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">削除</button>
-                        </td>
-                    </tr>
-                `;
-                orderRows.push(rowHTML);
-            });
-
-            tableBody.innerHTML = orderRows.join("");
-
-            // 削除ボタンのイベント設定
-            const deleteButtons = tableBody.querySelectorAll('.btn-delete');
-            deleteButtons.forEach(button => {
-                button.addEventListener('click', async (e) => {
-                    const id = e.target.getAttribute('data-id');
-                    if (id && confirm("この注文データを非表示にしてもよろしいですか？")) {
-                        try {
-                            // 元データを消さずに、非表示フラグ（isDeleted）を true に更新する
-                            const docRef = doc(db, "orders", id);
-                            await updateDoc(docRef, {
-                                isDeleted: true
-                            });
-
-                            // 画面からもすぐに消す
-                            const row = e.target.closest('tr');
-                            if (row) row.remove();
-
-                        } catch (error) {
-                            console.error("非表示エラー:", error);
-                            alert("非表示処理に失敗しました。");
-                        }
-                    }
+        if (newOrderName) {
+            if (Notification.permission === "granted") {
+                new Notification("🔔 新しい予約が届きました！", {
+                    body: `${newOrderName} 様からの注文です。`,
+                    icon: "https://flaticon.com" 
                 });
-            });
+            }
+        
+            if (audioCtx) {
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                try {
+                    const playTone = (startTime, duration, frequency) => {
+                        const oscillator = audioCtx.createOscillator();
+                        const gainNode = audioCtx.createGain();
+                        
+                        oscillator.connect(gainNode);
+                        gainNode.connect(audioCtx.destination);
+                        
+                        oscillator.type = 'sine';
+                        oscillator.frequency.setValueAtTime(frequency, startTime);
+                        
+                        gainNode.gain.setValueAtTime(0, startTime);
+                        gainNode.gain.linearRampToValueAtTime(0.15, startTime + 0.02); 
+                        gainNode.gain.setValueAtTime(0.15, startTime + duration - 0.02);
+                        gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
+                        
+                        oscillator.start(startTime);
+                        oscillator.stop(startTime + duration);
+                    };
 
-        // リセットボタンのイベント設定
-        const resetButtons = tableBody.querySelectorAll('.btn-reset-pin');
-        resetButtons.forEach(button => {
+                    const now = audioCtx.currentTime;
+                    playTone(now, 0.08, 987.77);       
+                    playTone(now + 0.1, 0.08, 987.77);
+                    playTone(now + 0.2, 0.08, 1318.51); 
+                    playTone(now + 0.45, 0.08, 987.77);
+                    playTone(now + 0.55, 0.08, 987.77);
+                    playTone(now + 0.65, 0.08, 1318.51);
+                } catch (e) {
+                    console.error("オーディオ再生エラー:", e);
+                }
+            }
+        }
+
+        querySnapshot.forEach((orderDoc) => {
+            const data = orderDoc.data();
+            const docId = orderDoc.id; 
+            
+            const gakunen = data.gakunen || "";
+            const className = data.className || "";
+            const number = data.number || "-";
+            const name = data.name || "不明";
+            const items = data.items || "なし";
+            const totalPrice = data.totalPrice ? data.totalPrice.toLocaleString() + "円" : "0円";
+            const userKey = data.userId || `${gakunen}-${className}-${number}`;
+          
+            const rowHTML = `
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 12px 10px; color: #555;">${gakunen} ${className}</td>
+                    <td style="padding: 12px 10px; color: #555;">${number} 番</td>
+                    <td style="padding: 12px 10px; font-weight: bold; color: #333;">${name}</td>
+                    <td style="padding: 12px 10px; color: #666; font-size: 14px; max-width: 400px; word-wrap: break-word;">${items}</td>
+                    <td style="padding: 12px 10px; font-weight: bold; color: #e67e22;">${totalPrice}</td>
+                    <td style="padding: 12px 10px;">
+                        <button class="btn-reset-pin" data-userkey="${userKey}" data-name="${name}" style="background: #f1c40f; color: #333; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-right: 5px;">🔑 リセット</button>
+                        <button class="btn-delete" data-id="${docId}" style="background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">削除</button>
+                    </td>
+                </tr>
+            `;
+            orderRows.push(rowHTML);
+        });
+
+        tableBody.innerHTML = orderRows.join("");
+
+        // 削除ボタンイベント
+        tableBody.querySelectorAll('.btn-delete').forEach(button => {
+            button.addEventListener('click', async (e) => {
+                const id = e.target.getAttribute('data-id');
+                if (id && confirm("この注文データを非表示にしてもよろしいですか？")) {
+                    try {
+                        await updateDoc(doc(db, "orders", id), { isDeleted: true });
+                        const row = e.target.closest('tr');
+                        if (row) row.remove();
+                    } catch (error) {
+                        console.error("非表示エラー:", error);
+                        alert("非表示処理に失敗しました。");
+                    }
+                }
+            });
+        });
+
+        // リセットボタンイベント
+        tableBody.querySelectorAll('.btn-reset-pin').forEach(button => {
             button.addEventListener('click', async (e) => {
                 const targetKey = e.target.getAttribute('data-userkey');
                 const targetName = e.target.getAttribute('data-name');
@@ -331,8 +344,7 @@ onSnapshot(doc(db, "analytics", todayStr), (docSnap) => {
                 }
             });
         });
-
-        isInitialLoad = false; 
+                isInitialLoad = false; 
     }, (error) => {
         console.error("注文データの取得エラー:", error);
         const tableBody = document.getElementById("orderTableBody");
@@ -340,8 +352,11 @@ onSnapshot(doc(db, "analytics", todayStr), (docSnap) => {
             tableBody.innerHTML = `<tr><td colspan="6" style="padding: 20px; text-align: center; color: red;">データの取得に失敗しました。</td></tr>`;
         }
     });
+}
 
-      const enquiriesQuery = query(collection(db, "enquiries"));
+// --- ✉️ ③ 問い合わせデータのリアルタイム監視 ---
+function startEnquiriesMonitoring() {
+    const enquiriesQuery = query(collection(db, "enquiries"));
     let isInitialEnquiryLoad = true;
 
     onSnapshot(enquiriesQuery, (querySnapshot) => {
@@ -365,7 +380,6 @@ onSnapshot(doc(db, "analytics", todayStr), (docSnap) => {
             }
         });
 
-        // 新着問い合わせのデスクトップ通知
         if (newEnquiryName && Notification.permission === "granted") {
             new Notification("✉️ 新しいお問い合わせが届きました！", {
                 body: `${newEnquiryName} 様からのメッセージです。`
@@ -375,7 +389,6 @@ onSnapshot(doc(db, "analytics", todayStr), (docSnap) => {
         querySnapshot.forEach((enquiryDoc) => {
             const data = enquiryDoc.data();
             const docId = enquiryDoc.id;
-            
             const userKey = data.userKey || "";
             const name = data.name || "不明";
             const content = data.content || "なし";
@@ -396,9 +409,7 @@ onSnapshot(doc(db, "analytics", todayStr), (docSnap) => {
         enquiryRows.reverse();
         enquiryBody.innerHTML = enquiryRows.join("");
 
-        // 問い合わせ削除（対応済）ボタンのイベント
-        const deleteEnquiryButtons = enquiryBody.querySelectorAll('.btn-delete-enquiry');
-        deleteEnquiryButtons.forEach(button => {
+        enquiryBody.querySelectorAll('.btn-delete-enquiry').forEach(button => {
             button.addEventListener('click', async (e) => {
                 const id = e.target.getAttribute('data-id');
                 if (id && confirm("この問い合わせを対応済みとして削除しますか？")) {
@@ -416,8 +427,11 @@ onSnapshot(doc(db, "analytics", todayStr), (docSnap) => {
     }, (error) => {
         console.error("問い合わせデータの取得エラー:", error);
     });
+}
 
-       const newsQuery = query(collection(db, "news"), orderBy("date", "desc"));
+// --- 📢 ④ お知らせデータのリアルタイム監視 ---
+function startNewsMonitoring() {
+    const newsQuery = query(collection(db, "news"), orderBy("date", "desc"));
 
     onSnapshot(newsQuery, (querySnapshot) => {
         const newsBody = document.getElementById("newsTableBody");
@@ -435,20 +449,12 @@ onSnapshot(doc(db, "analytics", todayStr), (docSnap) => {
         querySnapshot.forEach((newsDoc) => {
             const data = newsDoc.data();
             const docId = newsDoc.id;
-            
-            const title = data.title || "無題";
             const body = data.body || "";
             
-            // FirebaseのTimestampを「2026/10/16」のような見やすい日付文字列に変換
             const dateStr = data.date ? data.date.toDate().toLocaleDateString('ja-JP', {
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-                hour:'2-digit',
-                minute: '2-digit'
+                year: 'numeric', month: '2-digit', day: '2-digit', hour:'2-digit', minute: '2-digit'
             }): "---";
 
-            // 他のテーブルとデザイン（paddingやborder）を統一したHTML
             const rowHTML = `
                 <tr style="border-bottom: 1px solid #eee;">
                     <td style="padding: 12px 10px; color: #555; white-space: nowrap;">${dateStr}</td>
@@ -461,18 +467,14 @@ onSnapshot(doc(db, "analytics", todayStr), (docSnap) => {
             newsRows.push(rowHTML);
         });
 
-        // 既にクエリ側で降順（orderBy）ソートしているため、そのまま結合して代入します
         newsBody.innerHTML = newsRows.join("");
 
-        // お知らせ削除ボタンのイベント設定（注文や問い合わせの処理と統一）
-        const deleteNewsButtons = newsBody.querySelectorAll('.btn-delete-news');
-        deleteNewsButtons.forEach(button => {
+        newsBody.querySelectorAll('.btn-delete-news').forEach(button => {
             button.addEventListener('click', async (e) => {
                 const id = e.target.getAttribute('data-id');
                 if (id && confirm("このお知らせを完全に削除してもよろしいですか？")) {
                     try {
                         await deleteDoc(doc(db, "news", id));
-                        
                     } catch (error) {
                         console.error("お知らせ削除エラー:", error);
                         alert("削除に失敗しました。");
@@ -483,28 +485,33 @@ onSnapshot(doc(db, "analytics", todayStr), (docSnap) => {
     }, (error) => {
         console.error("お知らせデータの取得エラー:", error);
     });
+}
 
-    // --- 📥 ④ お知らせの新規投稿フォームの処理 ---
+// --- 📥 ⑤ お知らせの新規投稿フォームの処理 ---
+function setupNewsForm() {
     const newsForm = document.getElementById("newsForm");
     if (newsForm) {
+        newsForm.onsubmit = null;
         newsForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-
-            const body = document.getElementById("newsBody").value;
+            const newsInput = document.getElementById("newsBody");
+            const body = newsInput.value;
 
             try {
                 await addDoc(collection(db, "news"), {
                     body: body,
-                    date: serverTimestamp() // 正確なサーバー時間を記録
+                    date: serverTimestamp()
                 });
-                alert("📢 お知らせを投稿しました！");
-                newsForm.reset(); // 入力欄をクリア
+                alert("お知らせを投稿しました。");
+                newsInput.value = ""; // 入力欄をクリア
             } catch (error) {
-                console.error("お知らせ投稿エラー:", error);
-                alert("お知らせの投稿に失敗しました。");
+                console.error("投稿エラー:", error);
+                alert("投稿に失敗しました。");
             }
         });
     }
+}
+
 </script>
 </body>
 </html>
