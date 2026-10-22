@@ -45,6 +45,8 @@
  // 既存のFirebaseインポートに以下を追加（Realtime Databaseの機能）
 import {initializeApp}from"https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
 import { getDatabase, ref, set, push, onDisconnect } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
+import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+import { getFirestore, doc, updateDoc, increment, setDoc, getDoc, collection, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 
 const firebaseConfig = {
             apiKey: "AIzaSyBtLHgM6RzCU_grTElSqLCmsaRu4rVe-4o", 
@@ -57,64 +59,75 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const rtdb = getDatabase(app);
+const db = getFirestore(app); 
+const auth = getAuth(app); 
+
+let audioCtx = null;
+
+// ==========================================
+// 🔒 匿名ログイン状態を監視し、成功後に各機能を実行
+// ==========================================
+onAuthStateChanged(auth, async (user) => {
+    if (user) {
+        console.log("生徒側：接続の準備が整いました。UID:", user.uid);
+        
+        // 匿名ログインが完了した後に、すべての処理を安全に実行します
+        trackPresence();
+        countTodayView();
+        listenNewsUpdates();
+
+    } else {
+        // ログインしていない場合は裏側で自動的に匿名ログイン
+        try {
+            await signInAnonymously(auth);
+        } catch (error) {
+            console.error("匿名接続に失敗しました:", error);
+        }
+    }
+});
 
 // --- 🌐 オンライン滞在者の記録機能 ---
 function trackPresence() {
-    // ユーザーごとにランダムなユニークIDを発行して、しるしをつける
     const onlineUsersRef = ref(rtdb, 'online_users');
     const myUserRef = push(onlineUsersRef);
 
-    // 1. ページを開いたとき：データベースに「値＝true」で自分を追加
+    // 1. ページを開いたとき：自分を追加
     set(myUserRef, true);
 
-    // 2. ページを閉じたとき（タブを閉じる、通信切断など）：自動的に自分のデータを削除する予約
+    // 2. ページを閉じたとき：自動的に削除する予約
     onDisconnect(myUserRef).remove();
 }
 
-// 実行する
-trackPresence();
-
-import { getFirestore, doc, updateDoc, increment, setDoc, getDoc, collection, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
-
-const db = getFirestore(app); // 既存のdb初期化
-
-// --- 📅 【新設】今日の訪問者数をカウントアップする機能 ---
+// --- 📅 今日の訪問者数をカウントアップする機能 ---
 async function countTodayView() {
-    // すでにこのタブ（セッション）でカウント済みの場合はスキップして二重カウントを防ぐ
     if (sessionStorage.getItem('counted_today')) return;
 
-    // 今日の日付を取得 (例: "2026-09-25")
+    // 💡 日付の取得ミスを [0] をつけて修正しました
     const today = new Date().toISOString().split('T')[0];
     const todayDocRef = doc(db, "analytics", today);
 
     try {
-        // 今日初めてのアクセスならドキュメントを作成、すでに存在すればviewsを+1する
         const docSnap = await getDoc(todayDocRef);
         if (docSnap.exists()) {
             await updateDoc(todayDocRef, { views: increment(1) });
         } else {
             await setDoc(todayDocRef, { views: 1 });
         }
-        
-        // カウント済みフラグをセッションに保存
         sessionStorage.setItem('counted_today', 'true');
     } catch (error) {
         console.error("今日の訪問者数カウントアップエラー:", error);
     }
 }
 
-// 実行する
-countTodayView();
-
+// --- 📢 お知らせデータのリアルタイム取得 ---
 function listenNewsUpdates() {
     const container = document.getElementById("news-list-container");
     if (!container) return;
 
-    // 日付の新しい順（desc）に「news」コレクションを監視するクエリ
     const newsQuery = query(collection(db, "news"), orderBy("date", "desc"));
 
     onSnapshot(newsQuery, (querySnapshot) => {
-        container.innerHTML = ""; // 一度初期化
+        container.innerHTML = "";
 
         if (querySnapshot.empty) {
             container.innerHTML = `
@@ -126,20 +139,12 @@ function listenNewsUpdates() {
 
         querySnapshot.forEach((newsDoc) => {
             const data = newsDoc.data();
-            const title = data.title || "無題";
             const body = data.body || "";
             
-            // FirebaseのTimestampを「2026/10/16」形式の日付文字列に変換
             const dateStr = data.date ? data.date.toDate().toLocaleDateString('ja-JP',{
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit'
+                year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
             }) : "---";
 
-
-            // 生徒向けの綺麗なカード型UIデザイン
             const cardHTML = `
                 <div class="news-card" style="background: #ffffff; padding: 15px 20px; border-radius: 8px; box-shadow: 2px 2px 6px rgba(0,0,0,0.08); border-left: 5px solid #4169e1; margin-bottom: 12px; text-align: left;">
                     <div style="font-size: 13px; color: #888; margin-bottom: 5px; font-weight: bold;">🕒 ${dateStr}</div>
@@ -152,12 +157,6 @@ function listenNewsUpdates() {
         console.error("生徒側お知らせ取得エラー:", error);
     });
 }
-
-// 実行する
-listenNewsUpdates();
-
-
-
 </script>
 
 </body>

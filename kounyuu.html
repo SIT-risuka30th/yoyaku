@@ -196,7 +196,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
     import {getFirestore, collection, addDoc, serverTimestamp, doc, setDoc, updateDoc, increment, getDoc, query, where, onSnapshot} from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
     import {getDatabase, ref, set, push, onDisconnect } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
-
+    import { getAuth, signInWithEmailAndPassword, signInAnonymously, onAuthStateChanged } from"https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
 
 
     const firebaseConfig = {
@@ -212,6 +212,31 @@
     const db = getFirestore(app);
     const rtdb = getDatabase(app);
   
+const auth = getAuth(app);
+let currentUid = null;
+
+// ページを開いた時、自動で「匿名ログイン」を実行する
+onAuthStateChanged(auth, async (user) => {
+    if (user) {
+        // すでにログイン済み、または自動ログイン成功
+        currentUid = user.uid;
+        console.log("匿名ユーザーとして接続完了、UID:", currentUid);
+        
+        // ⭐ もし最初にご案内した「お気に入り一覧」を画面に出すなら、ここでその関数を呼び出します
+        // if (typeof displayFavorites === "function") displayFavorites();
+
+    } else {
+        // ログインしていない場合は、裏側で自動ログインを実行
+        try {
+            const result = await signInAnonymously(auth);
+            currentUid = result.user.uid;
+            console.log("新しく匿名ログインしました、UID:", currentUid);
+        } catch (error) {
+            console.error("匿名ログインに失敗しました:", error);
+        }
+    }
+});
+
 
     let myOrdersListener = null;
 
