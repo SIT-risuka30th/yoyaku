@@ -37,6 +37,9 @@
         <div class="container">
         <input type="text" style="height:30px" id="nameInput" placeholder="個数を入力">
         <button id="saveBtn">カートに入れる</button>
+           <br><button id="favBtn" style="height:34px; width:300px ;margin-left: 5px; background: #fff; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                🤍 お気に入りに追加
+            </button></br>
         <p><a href="foodhome.html">商品ページに戻る</a></p>
         
          </div>
@@ -45,98 +48,202 @@
 
     <a href="kounyuu.html" class="float-btn"> <img src="kkrn_icon_cart_6.png" alt="購入画面へ"></a>
 
-    <script>
-        document.getElementById('saveBtn').addEventListener('click', () => {
-            const nameValue = document.getElementById('nameInput').value;
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+    import { getFirestore, doc, setDoc, deleteDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
 
-            if(nameValue.trim()==''){
-                alert("個数を入力してください");
-                return;
-            }
-            
-            localStorage.setItem('inputF3-2', nameValue);
-            alert('入力を保存しました！');
-        });
+    // 1. Firebaseの設定
+    const firebaseConfig = {
+        apiKey: "AIzaSyBtLHgM6RzCU_grTElSqLCmsaRu4rVe-4o", 
+        authDomain: "://firebaseapp.com", 
+        projectId: "koubai-7b6a6", 
+        storageBucket: "koubai-7b6a6.firebasetorage.app", 
+        messagingSenderId: "934504714342", 
+        appId: "1:934504714342:web:e160ada63fcfcd906c5da7"
+    };
 
-                const domainPart = "https://" + "docs." + "google.com";
-        const sheetIdPart = "1XDmbBjMA3AwlaBiqVhovvMnNDv-elaaaNoHIWIbCZvI";
-        const sheetNamePart = "0"; 
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
 
-        const csvUrl = domainPart + "/spreadsheets/d/" + sheetIdPart + "/gviz/tq?tqx=out:csv&sheet=" + sheetNamePart;
+    const currentProductId = "food3-2"; // 👈 【重要】他と絶対に被らないお気に入り用の英数字ID
+    const currentProductName = "チョコブラウニー リッチミルク";   // 👈 スプレッドシートから名前を取る場合は後で連動も可能です
+    const currentProductPrice = 140;        // 👈 価格
 
-        const targetRow = 6;
-        const targetCol = 1;
+    let currentUid = null;
 
-       (async function() {
-        try {
-            const response = await fetch(csvUrl);
-            if (!response.ok) throw new Error('Googleからのデータ取得に失敗しました。');
-            
-            const csvText = await response.text();
-            
-            // 【修正】どんなにカンマや改行が乱れていても、確実に1文字ずつ判定して2次元配列化するロジック
-            const data = parseCSVAdvanced(csvText);
-            
-            if (data.length === 0) {
-                throw new Error('シートが空か、アクセス権がありません。共有設定が「リンクを知っている全員が閲覧可」になっているか再確認してください。');
-            }
+    onAuthStateChanged(auth, async (user) => {
+    if (user) {
+        currentUid = user.uid;
+        console.log("生徒接続完了。UID:", currentUid);
         
-            displaySingleCell(data,targetRow,targetCol);
+        // 🔑 匿名ログインが100%成功した後に、すべての安全な処理をスタートさせます
+        checkFavoriteStatus();
+        loadSpreadsheetData(); // 👈 スプレッドシートの取得関数をここで安全に呼び出す
+
+    } else {
+        try {
+            await signInAnonymously(auth);
+        } catch (error) {
+            console.error("匿名接続エラー:", error);
+        }
+    }
+});
+
+// 4. 📋 現在のお気に入り状態をチェックしてボタンの見た目を変える関数
+async function checkFavoriteStatus() {
+    if (!currentUid) return;
+    const favRef = doc(db, "users", currentUid, "favorites", currentProductId);
+    const favBtn = document.getElementById("favBtn");
+    if (!favBtn) return;
+
+    const docSnap = await getDoc(favRef);
+    if (docSnap.exists()) {
+        favBtn.textContent = "❤️ お気に入り登録中";
+        favBtn.style.borderColor = "#e74c3c";
+        favBtn.style.color = "#e74c3c";
+    } else {
+        favBtn.textContent = "🤍 お気に入りに追加";
+        favBtn.style.borderColor = "#ccc";
+        favBtn.style.color = "#333";
+    }
+}
+
+// 5. ⭐ お気に入りボタンが押された時のクリックイベント
+const favBtn = document.getElementById('favBtn');
+if (favBtn) {
+    favBtn.addEventListener('click', async () => {
+        if (!currentUid) {
+            alert("接続の準備中です。少し待ってから再度お試しください。");
+            return;
+        }
+
+        const favRef = doc(db, "users", currentUid, "favorites", currentProductId);
+
+        try {
+            const docSnap = await getDoc(favRef);
+
+            if (docSnap.exists()) {
+                await deleteDoc(favRef);
+                alert("お気に入りから削除しました");
+            } else {
+                await setDoc(favRef, {
+                    productId: currentProductId,
+                    productName: currentProductName,
+                    price: currentProductPrice,
+                    addedAt: serverTimestamp()
+                });
+                alert("お気に入りに追加しました！");
+            }
+            checkFavoriteStatus();
 
         } catch (error) {
-            console.error('エラー詳細:', error);
-            document.getElementById('table-container').innerHTML = `<p class="error-msg">【エラー】${error.message}</p>`;
+            console.error("お気に入り登録エラー:", error);
+            alert("お気に入り処理に失敗しました。");
         }
-    })();
+    });
+}
 
-    // 改良された高度なCSV切り分け関数
-    function parseCSVAdvanced(text) {
-        const lines = [];
-        let row = [];
-        let cell = '';
-        let inQuotes = false;
+// 6. 🛒 「カートに入れる」ボタンのクリックイベント（ご提示のコードに合わせました）
+document.getElementById('saveBtn').addEventListener('click', () => {
+    const nameValue = document.getElementById('nameInput').value;
 
-        for (let i = 0; i < text.length; i++) {
-            const char = text[i];
-            const nextChar = text[i + 1];
+    if(nameValue.trim()==''){
+        alert("個数を入力してください");
+        return;
+    }
+    
+    // 💡 このページ固有のキー名に連動
+    localStorage.setItem('inputF3-2', nameValue);
+    alert('入力を保存しました！');
+});
 
-            if (inQuotes) {
-                if (char === '"') {
-                    if (nextChar === '"') { cell += '"'; i++; } 
-                    else { inQuotes = false; }
-                } else {
-                    cell += char;
-                }
+// =========================================================================
+// 📊 Googleスプレッドシートデータ取得処理（ログイン後に安全に実行される関数化）
+// =========================================================================
+async function loadSpreadsheetData() {
+    const domainPart = "https://" + "docs." + "google.com";
+    const sheetIdPart = "1XDmbBjMA3AwlaBiqVhovvMnNDv-elaaaNoHIWIbCZvI";
+    const sheetNamePart = "0"; 
+
+    const csvUrl = domainPart + "/spreadsheets/d/" + sheetIdPart + "/gviz/tq?tqx=out:csv&sheet=" + sheetNamePart;
+
+    const targetRow = 6;
+    const targetCol = 1;
+
+    try {
+        const response = await fetch(csvUrl);
+        if (!response.ok) throw new Error('Googleからのデータ取得に失敗しました。');
+        
+        const csvText = await response.text();
+        const data = parseCSVAdvanced(csvText);
+        
+        if (data.length === 0) {
+            throw new Error('シートが空か、アクセス権がありません。共有設定が「リンクを知っている全員が閲覧可」になっているか再確認してください。');
+        }
+    
+        displaySingleCell(data, targetRow, targetCol);
+
+    } catch (error) {
+        console.error('エラー詳細:', error);
+        const container = document.getElementById('table-container');
+        if (container) {
+            container.innerHTML = `<p class="error-msg">【エラー】${error.message}</p>`;
+        }
+    }
+}
+
+// CSV切り分け関数
+function parseCSVAdvanced(text) {
+    const lines = [];
+    let row = [];
+    let cell = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        const nextChar = text[i + 1];
+
+        if (inQuotes) {
+            if (char === '"') {
+                if (nextChar === '"') { cell += '"'; i++; } 
+                else { inQuotes = false; }
             } else {
-                if (char === '"') { inQuotes = true; }
-                else if (char === ',') { row.push(cell.trim()); cell = ''; }
-                else if (char === '\r' || char === '\n') {
-                    row.push(cell.trim());
-                    if (row.some(c => c !== '')) lines.push(row);
-                    row = [];
-                    cell = '';
-                    if (char === '\r' && nextChar === '\n') { i++; } 
-                } else {
-                    cell += char;
-                }
+                cell += char;
+            }
+        } else {
+            if (char === '"') { inQuotes = true; }
+            else if (char === ',') { row.push(cell.trim()); cell = ''; }
+            else if (char === '\r' || char === '\n') {
+                row.push(cell.trim());
+                if (row.some(c => c !== '')) lines.push(row);
+                row = [];
+                cell = '';
+                if (char === '\r' && nextChar === '\n') { i++; } 
+            } else {
+                cell += char;
             }
         }
-        if (cell || row.length > 0) {
-            row.push(cell.trim());
-            if (row.some(c => c !== '')) lines.push(row);
-        }
-        return lines;
     }
-
-    function displaySingleCell(data,rowIdx,colIdx){
-        if (data[rowIdx] && data[colIdx] !== undefined){
-            const cellText = data[rowIdx][colIdx];
-            document.getElementById('cell-value').innerText = cellText;
-        } else{
-            document.getElementById('cell-value').innerText = "指定されたセルにデータがありません";
-
-        }
+    if (cell || row.length > 0) {
+        row.push(cell.trim());
+        if (row.some(c => c !== '')) lines.push(row);
     }
+    return lines;
+}
+
+function displaySingleCell(data, rowIdx, colIdx){
+    const cellValueEl = document.getElementById('cell-value');
+    if (!cellValueEl) return;
+
+    if (data[rowIdx] && data[rowIdx][colIdx] !== undefined){ // 💡 colIdxの指定バグを修正
+        const cellText = data[rowIdx][colIdx];
+        cellValueEl.innerText = cellText;
+    } else {
+        cellValueEl.innerText = "指定されたセルにデータがありません";
+    }
+}
     </script>
 
 

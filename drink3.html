@@ -34,6 +34,9 @@
         <div class="container">
         <input type="text" style="height:30px" id="nameInput" placeholder="個数を入力">
         <button id="saveBtn">カートに入れる</button>
+           <br><button id="favBtn" style="height:34px; width:300px ;margin-left: 5px; background: #fff; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                🤍 お気に入りに追加
+            </button></br>
         <p><a href="drinkhome.html">商品ページに戻る</a></p>
         
          </div>
@@ -42,18 +45,116 @@
     
 <a href="kounyuu.html" class="float-btn"> <img src="kkrn_icon_cart_6.png" alt="購入画面へ"></a>
 
-    <script>
-        document.getElementById('saveBtn').addEventListener('click', () => {
-            const nameValue = document.getElementById('nameInput').value;
+    <script type="module">
+     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+    import { getFirestore, doc, setDoc, deleteDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
 
-              if(nameValue.trim()==''){
-                alert("個数を入力してください");
-                return;
+    // 1. Firebaseの設定
+    const firebaseConfig = {
+        apiKey: "AIzaSyBtLHgM6RzCU_grTElSqLCmsaRu4rVe-4o", 
+        authDomain: "://firebaseapp.com", 
+        projectId: "koubai-7b6a6", 
+        storageBucket: "koubai-7b6a6.firebasetorage.app", 
+        messagingSenderId: "934504714342", 
+        appId: "1:934504714342:web:e160ada63fcfcd906c5da7"
+    };
+
+    // 2. 初期化
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    // 🔑 このページ固有の商品情報を定義（他の商品ページを作る時はここを書き換えます）
+    const currentProductId = "drink3"; // データベースで管理する英数字の商品ID
+    const currentProductName = "きりっと果実スカッシュ";  // 商品名
+    const currentProductPrice = 150;          // 価格
+
+    let currentUid = null;
+
+    // 3. 🔒 匿名ログイン状態の監視（ページを開いた瞬間に裏で実行）
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            currentUid = user.uid;
+            console.log("生徒接続完了。UID:", currentUid);
+            
+            // ログインできたら、この商品がすでにお気に入りに入っているかチェック
+            checkFavoriteStatus();
+        } else {
+            try {
+                await signInAnonymously(auth);
+            } catch (error) {
+                console.error("匿名接続エラー:", error);
             }
+        }
+    });
 
-            localStorage.setItem('inputD3', nameValue);
-            alert('入力を保存しました！');
-        });
+    // 4. 📋 現在のお気に入り状態をチェックしてボタンの見た目を変える関数
+    async function checkFavoriteStatus() {
+        if (!currentUid) return;
+        const favRef = doc(db, "users", currentUid, "favorites", currentProductId);
+        const favBtn = document.getElementById("favBtn");
+        if (!favBtn) return;
+
+        const docSnap = await getDoc(favRef);
+        if (docSnap.exists()) {
+            favBtn.textContent = "❤️ お気に入り登録中";
+            favBtn.style.borderColor = "#e74c3c";
+            favBtn.style.color = "#e74c3c";
+        } else {
+            favBtn.textContent = "🤍 お気に入りに追加";
+            favBtn.style.borderColor = "#ccc";
+            favBtn.style.color = "#333";
+        }
+    }
+
+    // 5. ⭐ お気に入りボタンが押された時のクリックイベント
+    document.getElementById('favBtn').addEventListener('click', async () => {
+        if (!currentUid) {
+            alert("接続の準備中です。少し待ってから再度お試しください。");
+            return;
+        }
+
+        const favRef = doc(db, "users", currentUid, "favorites", currentProductId);
+
+        try {
+            const docSnap = await getDoc(favRef);
+
+            if (docSnap.exists()) {
+                // すでにお気に入りにある場合は「削除」
+                await deleteDoc(favRef);
+                alert("お気に入りから削除しました");
+            } else {
+                // お気に入りにない場合は「追加」
+                await setDoc(favRef, {
+                    productId: currentProductId,
+                    productName: currentProductName,
+                    price: currentProductPrice,
+                    addedAt: serverTimestamp()
+                });
+                alert("お気に入りに追加しました！");
+            }
+            // ボタンの表示を最新状態に更新
+            checkFavoriteStatus();
+
+        } catch (error) {
+            console.error("お気に入り登録エラー:", error);
+            alert("お気に入り処理に失敗しました。");
+        }
+    });
+
+    // 6. 🛒 既存の「カートに入れる」ボタンのクリックイベント（そのまま移植）
+    document.getElementById('saveBtn').addEventListener('click', () => {
+        const nameValue = document.getElementById('nameInput').value;
+
+        if (nameValue.trim() == '') {
+            alert("個数を入力してください");
+            return;
+        }
+
+        localStorage.setItem('inputD3', nameValue);
+        alert('入力を保存しました！');
+    });
     </script>
 
 

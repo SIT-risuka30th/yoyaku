@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>札幌国際情報高校購買予約サイト</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+    <h1 class="title">札幌国際情報高校　購買予約確認サイト</h1>
+    <nav class="nav">
+        <ul class="menu-group">
+        <li class="menu-item"><a href="index.html">ホーム</a></li>
+        <li class="menu-item"><a href="zaikokakunin.html">在庫確認</a></li>
+        <li class="menu-item"><a href="toiawase.html">お問い合わせ</a></li>
+        </ul>
+    </nav>
+    </header>
+<main>
+
+    <h1>あなたのお気に入り</h1>
+    <a class="fixed-button" href="foodhome.html">商品ホームに戻る</a>
+
+    <div class="fav-container" id="favContainer">
+        <!-- 💡 JavaScriptでここにお気に入り商品が自動で入ります -->
+        <p style="text-align: center; color: #888;">読み込み中...</p>
+    </div>
+
+    
+
+    <!-- 🛒 カート画面へ進む浮遊ボタン（既存の仕組みと統一） -->
+   <a href="kounyuu.html" class="float-btn"> <img src="kkrn_icon_cart_6.png" alt="購入画面へ"></a>
+    </a>
+
+    </main>
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+    import { getFirestore, doc, collection, query, orderBy, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+
+    // 1. Firebaseの設定（他のページと共通）
+    const firebaseConfig = {
+        apiKey: "AIzaSyBtLHgM6RzCU_grTElSqLCmsaRu4rVe-4o", 
+        authDomain: "://firebaseapp.com", 
+        projectId: "koubai-7b6a6", 
+        storageBucket: "koubai-7b6a6.firebasetorage.app", 
+        messagingSenderId: "934504714342", 
+        appId: "1:934504714342:web:e160ada63fcfcd906c5da7"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    let currentUid = null;
+
+    // 2. 🔒 匿名ログイン状態の監視
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            currentUid = user.uid;
+            console.log("お気に入りページ接続完了。UID:", currentUid);
+            
+            // ログインが確認できたら、お気に入りデータのリアルタイム監視を開始
+            listenFavorites();
+        } else {
+            try {
+                await signInAnonymously(auth);
+            } catch (error) {
+                console.error("匿名接続エラー:", error);
+            }
+        }
+    });
+
+    // 3. 📋 お気に入りデータをリアルタイムで取得して画面に描画する関数
+    function listenFavorites() {
+        const favContainer = document.getElementById("favContainer");
+        if (!favContainer) return;
+
+        // 登録日時の新しい順に取得
+        const favQuery = query(collection(db, "users", currentUid, "favorites"), orderBy("addedAt", "desc"));
+
+        onSnapshot(favQuery, (querySnapshot) => {
+            favContainer.innerHTML = ""; // 画面を一度リセット
+
+            if (querySnapshot.empty) {
+                favContainer.innerHTML = `<p style="text-align: center; color: #999; margin-top: 40px;">お気に入りに登録された商品はありません。</p>`;
+                return;
+            }
+
+            querySnapshot.forEach((favDoc) => {
+                const data = favDoc.data();
+                const pId = data.productId;
+                const pName = data.productName || "不明な商品";
+                const pPrice = data.price || 0;
+
+                // 各商品のカードHTMLを作成
+                const cardHTML = `
+                    <div class="fav-card" id="card_${pId}">
+                        <div class="product-info">
+                            <h3>${pName}</h3>
+                            <p>${pPrice}円</p>
+                        </div>
+                        <div class="btn-group">
+                            <!-- 💡 カートインボタン（個数1で即時投入する例） -->
+                            <button class="cart-btn" data-id="${pId}">1個カートに入れる</button>
+                            <button class="remove-btn" data-id="${pId}">❌ 解除</button>
+                        </div>
+                    </div>
+                `;
+                favContainer.innerHTML += cardHTML;
+            });
+
+            // ボタンへのイベント登録（モジュールスコープのためaddEventListenerで紐付けます）
+            setupButtonEvents();
+
+        }, (error) => {
+            console.error("お気に入りデータの取得エラー:", error);
+            favContainer.innerHTML = `<p style="text-align: center; color: red;">データの取得に失敗しました。</p>`;
+        });
+    }
+
+    // 4. 🖱️ 画面上の各ボタンにクリックイベントを設定する関数
+    function setupButtonEvents() {
+        // --- ⚡ カートに入れるボタンの処理 ---
+      document.querySelectorAll('.cart-btn').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const btn = e.target;
+                const productId = btn.getAttribute('data-id');
+        
+        // 💡 各商品の「ID」と「LocalStorageのキー名」のペアを辞書（データ型）として定義
+        const keyMap = {
+            "drink1": "inputD1",   
+            "drink2": "inputD2",
+            "drink3": "inputD3",
+            "drink4": "inputD4",
+            "drink5": "inputD5",
+            "drink6": "inputD6",
+            "drink7": "inputD7",
+            "drink8": "inputD8",
+            "drink9": "inputD9",
+            "drink10": "inputD10",
+            "drink11": "inputD11",
+            "food1": "inputF1",
+            "food2": "inputF2",
+            "food3": "inputF3",
+            "food3-2": "inputF3-2",
+            "food4": "inputF4",
+
+            
+            // 📝 新しい商品が増えたら、ココに【 "商品ID": "保存キー" 】を1行足すだけ！
+        };
+
+        // 押された商品の保存キーを取得
+        const targetKey = keyMap[productId];
+
+        if (targetKey) {
+                    // 1. 画面移動せず、その場でデータを保存
+                    localStorage.setItem(targetKey, '1');
+                    
+                    // 2. ✨【プチ演出】ボタンの見た目を変えて、入ったことを生徒に知らせる
+                    const originalText = btn.textContent;
+                    btn.textContent = "追加しました！";
+                    btn.style.backgroundColor = "#3498db"; // 一時的に青色にする
+                    btn.disabled = true; // 連打防止
+
+                    // 1秒後に元のボタンの表示（⚡ 1個カートに入れる）に戻す
+                    setTimeout(() => {
+                        btn.textContent = originalText;
+                        btn.style.backgroundColor = ""; // 元の緑色に戻す
+                        btn.disabled = false;
+                    }, 1000);
+
+                } else {
+                    // keyMapに登録し忘れた商品があった場合の予備ルール
+                    localStorage.setItem(`input_${productId}`, '1');
+                    alert("カートに保存しました！");
+                }
+            });
+        });
+
+        // --- ❌ お気に入り解除ボタンの処理 ---
+        document.querySelectorAll('.remove-btn').forEach(button => {
+            button.addEventListener('click', async (e) => {
+                const productId = e.target.getAttribute('data-id');
+                
+                if (confirm("この商品をお気に入りから削除しますか？")) {
+                    const favRef = doc(db, "users", currentUid, "favorites", productId);
+                    try {
+                        await deleteDoc(favRef);
+                        // 💡 リアルタイム監視（onSnapshot）が走るため、自動で画面からも消えます
+                    } catch (error) {
+                        console.error("削除エラー:", error);
+                        alert("削除に失敗しました。");
+                    }
+                }
+            });
+        });
+    }
+</script>
+</body>
+</html>
