@@ -63,7 +63,6 @@
                 // 🔑 自分のUIDの注文データだけを絞り込んで取得するクエリ
                 const historyQuery = query(
                     collection(db, "orders"),
-                    where("userId", "==", user.uid),
                     orderBy("orderDate", "desc")
                 );
 
