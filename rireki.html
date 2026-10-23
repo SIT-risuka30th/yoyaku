@@ -63,7 +63,7 @@
                 // 🔑 自分のUIDの注文データだけを絞り込んで取得するクエリ
                 const historyQuery = query(
                     collection(db, "orders"),
-                    orderBy("orderDate", "desc")
+                    orderBy("createdAt", "desc")
                 );
 
                 const container = document.getElementById("table-container");
