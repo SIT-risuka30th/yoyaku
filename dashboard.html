@@ -148,6 +148,8 @@ if (Notification.permission === "default") {
 onAuthStateChanged(auth, (user) => {
     if (user) {
         console.log("管理者としてログイン確認が取れました！UID:", user.uid);
+        console.log("UID:", user.uid);
+        console.log("メールアドレス:", user.email);
         
         // ログインが確認できてから、すべてのデータ監視をスタートさせる
         startOnlineUsersCounter();
