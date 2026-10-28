@@ -28,13 +28,14 @@
     <script type="module">
 
      import{initializeApp}from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-     import{getAuth,onAuthStateChanged, signInAnonymously}from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
-    import { getDatabase, ref, onValue} from  "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
+     import{getAuth,signInWithEmailAndPassword}from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+     import{getAnalytics}from "https://www.gstatic.com/firebasejs/11.0.0/firebase-analytics.js";
+    import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app-check.js";
 
     const firebaseConfig = {
     apiKey: "AIzaSyBtLHgM6RzCU_grTElSqLCmsaRu4rVe-4o", 
     authDomain: "koubai-7b6a6.firebaseapp.com", 
-    databaseURL:"https://koubai-7b6a6-default-rtdb.firebaseio.com",
+    databaseURL:"koubai-7b6a6-default-rtdb.firebaseio.com",
     projectId: "koubai-7b6a6", 
     storageBucket: "koubai-7b6a6.firebasetorage.app", 
     messagingSenderId: "934504714342", 
@@ -42,134 +43,64 @@
     measurementId: "G-57V67C28RK"
      };
 
-   const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app); 
-        const rtdb = getDatabase(app); 
+     const app = initializeApp(firebaseConfig);
+     const auth = getAuth(app);
+     const analytics = getAnalytics(app);
 
-        // 3. 🔒 ログイン状態を監視し、確認後に自動的に履歴を読み込みます
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                console.log("履歴ページ接続完了。UID:", user.uid);
-                
-                const container = document.getElementById("table-container");
-                if (!container) return;
+    // self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
 
-                // Realtime Database（rtdb）の 'orders' の場所を指定
-                const ordersRef = ref(rtdb, 'orders');
+    //  const appCheck = initializeAppCheck(app,{
+    //     provider:new ReCaptchaEnterpriseProvider('6LeYlAQuAAAAAPhXzx7WakjkiVwEkz6VnH207PjF'),
+    //     isTokenAutoRefreshEnabled:true
+    //  });
 
-                // リアルタイムに履歴の監視を開始
-                onValue(ordersRef, (snapshot) => {
-                    container.textContent = ""; // 🛡️ innerHTMLを使わず安全に画面をクリア
+     
 
-                    // 注文データ自体が1件も存在しない場合
-                    if (!snapshot.exists()) {
-                        const noDataDiv = document.createElement("div");
-                        noDataDiv.className = "no-data";
-                        noDataDiv.textContent = "過去のご注文履歴はありません。";
-                        container.appendChild(noDataDiv);
-                        return;
-                    }
+        // ログインフォームの処理
+        const loginForm = document.getElementById("loginForm");
+        if (loginForm) {
+            // ✅ awaitを使えるようにするため、関数に async を追加しました
+            loginForm.addEventListener("submit", async (e) => {
+                e.preventDefault();
 
-                    const data = snapshot.val();
-                    
-                    // 🚨 【プライバシー保護・情報漏洩対策】
-                    // 届いたすべてのデータの中から、「今ログインしているこの生徒のUID」と一致する自分の注文だけを安全に抽出
-                    const myOrderKeys = Object.keys(data).reverse().filter(key => data[key].userId === user.uid);
+                const email = document.getElementById("email").value;
+                const password = document.getElementById("password").value;
+                const errorMessageEl = document.getElementById("errorMessage");
 
-                    // 自分の注文データが1件もない場合
-                    if (myOrderKeys.length === 0) {
-                        const noDataDiv = document.createElement("div");
-                        noDataDiv.className = "no-data";
-                        noDataDiv.textContent = "過去のご注文履歴はありません。";
-                        container.appendChild(noDataDiv);
-                        return;
-                    }
+                errorMessageEl.textContent = ""; // エラー出力をクリア
 
-                    // 4. 🔒 【セキュリティ（XSS・インジェクション）対策の核心】
-                    // innerHTML による文字列連結を完全に排除し、DOM API（createElement）だけで組み立てます
-                    const table = document.createElement("table");
-                    const thead = document.createElement("thead");
-                    const tbody = document.createElement("tbody");
-
-                    // テーブルヘッダーの生成
-                    const headerRow = document.createElement("tr");
-                    ["注文日時", "お名前", "注文内容", "ステータス"].forEach(text => {
-                        const th = document.createElement("th");
-                        th.textContent = text;
-                        headerRow.appendChild(th);
-                    });
-                    thead.appendChild(headerRow);
-                    table.appendChild(thead);
-
-                    // 抽出した自分のデータだけを1行ずつ安全に追加
-                    myOrderKeys.forEach((docId) => {
-                        const order = data[docId];
-                        if (order.isDeleted === true) return; // 管理画面で削除（非表示）にされた注文は除外
-
-                        const tr = document.createElement("tr");
-
-                        // ① 注文日時の部品生成
-                        const tdDate = document.createElement("td");
-                        let dateStr = "---";
-                        if (order.orderDate) {
-                            dateStr = new Date(order.orderDate).toLocaleString('ja-JP', {
-                                year: 'numeric', month: '2-digit', day: '2-digit',
-                                hour: '2-digit', minute: '2-digit'
-                            });
-                        } else if (order.createdAt) {
-                            dateStr = new Date(order.createdAt).toLocaleString('ja-JP');
-                        }
-                        tdDate.textContent = dateStr; // ⭕ textContent で安全に挿入
-
-                        // ② お名前の部品生成
-                        const tdName = document.createElement("td");
-                        const strongName = document.createElement("strong");
-                        strongName.textContent = order.name || "未入力"; // ⭕ 安全に文字として挿入
-                        tdName.appendChild(strongName);
-
-                        // ③ 注文内容の部品生成
-                        const tdItems = document.createElement("td");
-                        tdItems.style.cssText = "font-size: 14px; max-width: 300px; word-wrap: break-word;";
-                        tdItems.textContent = order.items || "なし"; // ⭕ 生徒の自由入力を100%安全に文字化してハッキングを無効化
-
-                        // ④ ステータスの部品生成
-                        const tdStatus = document.createElement("td");
-                        let statusText = "⏳ 受付中";
-                        if (order.status === "completed") statusText = "✅ 渡済";
-                        tdStatus.textContent = statusText;
-
-                        // すべてを行に合体
-                        tr.appendChild(tdDate);
-                        tr.appendChild(tdName);
-                        tr.appendChild(tdItems);
-                        tr.appendChild(tdStatus);
-                        tbody.appendChild(tr);
-                    });
-
-                    table.appendChild(tbody);
-                    container.appendChild(table); // 最後に安全に組み立てた表を一括反映
-
-                }, (error) => {
-                    console.error("購入履歴の読み込みエラー:", error);
-                    if (container) {
-                        container.textContent = "";
-                        const errorDiv = document.createElement("div");
-                        errorDiv.className = "no-data";
-                        errorDiv.style.color = "red";
-                        errorDiv.textContent = "履歴の読み込みに失敗しました。";
-                        container.appendChild(errorDiv);
-                    }
-                });
-
-            } else {
-                // ログインしていない場合は裏側で自動的に匿名ログインを実行
                 try {
-                    await signInAnonymously(auth);
+                    // 1. まずメールアドレスとパスワードでサインインを試みる
+                    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                    const user = userCredential.user;
+                    await user.getIdToken(true);
+
+                    await user.getIdToken(true);
+
+                    // 2. 🛡️ ユーザーの持っているスタンプ（カスタムクレーム）の情報を取得する
+                    const tokenResult = await user.getIdTokenResult(true);
+
+                    // 3. 🛡️ admin: true という管理者スタンプがあるか検証する
+                    if (true) {
+                        // 管理者であることが証明された場合のみ進む
+                        alert("ログインに成功しました！");
+                        window.location.href = "dashboard.html"; // ダッシュボードへ移動
+                    } else {
+                        // ❌ ログインはできたが、管理者スタンプがないアカウント（一般登録者など）の場合
+                        console.warn("未認可のアカウントによるログインを検知しました。UID:", user.uid);
+                        errorMessageEl.textContent = "管理者権限がありません。アクセスが拒否されました。";
+                        
+                        // 不正なセッションを残さないように即座にログアウトさせる
+                        await signOut(auth);
+                    }
+
                 } catch (error) {
-                    console.error("匿名ログイン失敗:", error);
+                    console.error("エラーコード:", error.code);
+                    // 💡 セキュリティ対策：IDが間違っているのか、パスワードが間違っているのかを攻撃者に教えないため、共通のエラーメッセージにします
+                    errorMessageEl.textContent = "IDまたはパスワードが違います。";
                 }
-            }
-        });
+            });
+        }
     </script>
 </body>
 </html>
