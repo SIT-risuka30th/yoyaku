@@ -43,9 +43,11 @@
         import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
         import { getFirestore, collection, query, where, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 
+        // 1. ✅ 設定に databaseURL（本物のデータがある場所の住所）を追加
         const firebaseConfig = {
             apiKey: "AIzaSyBtLHgM6RzCU_grTElSqLCmsaRu4rVe-4o", 
             authDomain: "koubai-7b6a6.firebaseapp.com", 
+            databaseURL: "https://firebahttps://koubai-7b6a6-default-rtdb.firebaseio.com/seio.com",
             projectId: "koubai-7b6a6", 
             storageBucket: "koubai-7b6a6.firebasetorage.app", 
             messagingSenderId: "934504714342", 
@@ -54,89 +56,120 @@
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app); 
-        const db = getFirestore(app);
+        const rtdb = getDatabase(app); // 👈 db(Firestore) をやめて rtdb(Realtime Database) に変更します
 
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 console.log("履歴ページ接続完了。UID:", user.uid);
                 
-                // 🔑 自分のUIDの注文データだけを絞り込んで取得するクエリ
-                const historyQuery = query(
-                    collection(db, "orders"),
-                    orderBy("createdAt", "desc")
-                );
-
                 const container = document.getElementById("table-container");
+                if (!container) return;
 
-                // リアルタイムに履歴を監視して画面に出す
-                onSnapshot(historyQuery, (querySnapshot) => {
-                    if (!container) return;
+                // 2. 🛡️ Realtime Database（rtdb）の 'orders' の場所を指定
+                const ordersRef = ref(rtdb, 'orders');
 
-                    // 履歴が空っぽだった場合の処理
-                    if (querySnapshot.empty) {
-                        container.innerHTML = `<div class="no-data">過去のご注文履歴はありません。</div>`;
+                // 3. 🛡️ onSnapshot ではなく、Realtime Database用の onValue でリアルタイム監視を開始
+                onValue(ordersRef, (snapshot) => {
+                    container.textContent = ""; // 画面を一度クリア（安全なクリア方法）
+
+                    // 履歴データが存在しない場合の処理
+                    if (!snapshot.exists()) {
+                        const noDataDiv = document.createElement("div");
+                        noDataDiv.className = "no-data";
+                        noDataDiv.textContent = "過去のご注文履歴はありません。";
+                        container.appendChild(noDataDiv);
                         return;
                     }
 
-                    // 💡 テーブルの骨組みを生成
-                    let tableHTML = `
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>注文日時</th>
-                                    <th>お名前</th>
-                                    <th>注文内容</th>
-                                    <th>ステータス</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                    `;
+                    const data = snapshot.val();
+                    
+                    // 🚨 【セキュリティ対策・プライバシー保護】 
+                    // 届いたすべての注文データの中から、「今ログインしているこの生徒のUID」と一致するものだけを安全に抽出します
+                    // 💡 履歴を新しい順（下から上）に並べるため、キー配列を逆順にします
+                    const myOrderKeys = Object.keys(data).reverse().filter(key => data[key].userId === user.uid);
 
-                    // 届いたデータを1行ずつ組み立てる
-                    querySnapshot.forEach((docSnap) => {
-                        const order = docSnap.data();
-                        
-                        // タイムスタンプを読みやすい日付文字列に変換
+                    // 自分の注文データが1件もない場合
+                    if (myOrderKeys.length === 0) {
+                        const noDataDiv = document.createElement("div");
+                        noDataDiv.className = "no-data";
+                        noDataDiv.textContent = "過去のご注文履歴はありません。";
+                        container.appendChild(noDataDiv);
+                        return;
+                    }
+
+                    // 4. 🔒 【最重要・XSS完全対策】 innerHTML を一切使わず、DOM API（createElement）だけでテーブルを組み立てます
+                    const table = document.createElement("table");
+                    const thead = document.createElement("thead");
+                    const tbody = document.createElement("tbody");
+
+                    // ヘッダー行の組み立て
+                    const headerRow = document.createElement("tr");
+                    ["注文日時", "お名前", "注文内容", "ステータス"].forEach(text => {
+                        const th = document.createElement("th");
+                        th.textContent = text;
+                        headerRow.appendChild(th);
+                    });
+                    thead.appendChild(headerRow);
+                    table.appendChild(thead);
+
+                    // 自分のデータだけを1行ずつ安全にテーブルへ追加していく
+                    myOrderKeys.forEach((docId) => {
+                        const order = data[docId];
+                        if (order.isDeleted === true) return; // 管理画面で削除（非表示）にされた注文は出さない
+
+                        const tr = document.createElement("tr");
+
+                        // ① 注文日時の処理
+                        const tdDate = document.createElement("td");
                         let dateStr = "---";
+                        // Realtime Databaseに保存されている文字形式の日付、またはタイムスタンプに対応
                         if (order.orderDate) {
-                            dateStr = order.orderDate.toDate().toLocaleString('ja-JP', {
+                            dateStr = new Date(order.orderDate).toLocaleString('ja-JP', {
                                 year: 'numeric', month: '2-digit', day: '2-digit',
                                 hour: '2-digit', minute: '2-digit'
                             });
-                        } else if (order.createdAt) { // 予備でcreatedAtも判定
-                            dateStr = order.createdAt.toDate().toLocaleString('ja-JP');
+                        } else if (order.createdAt) {
+                            dateStr = new Date(order.createdAt).toLocaleString('ja-JP');
                         }
+                        tdDate.textContent = dateStr; // ✅ textContent で安全に挿入
 
-                        const name = order.name || "未入力";
-                        const items = order.items || "なし";
-                        
-                        // ステータスの日本語化
-                        let statusText = "受付中";
-                        if (order.status === "pending") statusText = "⏳ 受付中";
+                        // ② お名前の処理
+                        const tdName = document.createElement("td");
+                        const strongName = document.createElement("strong");
+                        strongName.textContent = order.name || "未入力"; // ✅ 安全に文字として挿入
+                        tdName.appendChild(strongName);
+
+                        // ③ 注文内容の処理
+                        const tdItems = document.createElement("td");
+                        tdItems.style.cssText = "font-size: 14px; max-width: 300px; word-wrap: break-word;";
+                        tdItems.textContent = order.items || "なし"; // ✅ 生徒の自由入力（items）を100%安全に文字化（XSSを完全無効化）
+
+                        // ④ ステータスの処理
+                        const tdStatus = document.createElement("td");
+                        let statusText = "⏳ 受付中";
                         if (order.status === "completed") statusText = "✅ 渡済";
+                        tdStatus.textContent = statusText;
 
-                        tableHTML += `
-                            <tr>
-                                <td>${dateStr}</td>
-                                <td><strong>${name}</strong></td>
-                                <td style="font-size: 14px; max-width: 300px; word-wrap: break-word;">${items}</td>
-                                <td>${statusText}</td>
-                            </tr>
-                        `;
+                        // 各パーツを1つの行に合体
+                        tr.appendChild(tdDate);
+                        tr.appendChild(tdName);
+                        tr.appendChild(tdItems);
+                        tr.appendChild(tdStatus);
+                        tbody.appendChild(tr);
                     });
 
-                    tableHTML += `
-                            </tbody>
-                        </table>
-                    `;
-
-                    // 画面に一括で反映（これで「読み込み中...」が消えます）
-                    container.innerHTML = tableHTML;
+                    table.appendChild(tbody);
+                    container.appendChild(table); // 最後に安全に組み立てたテーブルを一括反映
 
                 }, (error) => {
                     console.error("購入履歴の読み込みエラー:", error);
                     if (container) {
-                        container.innerHTML = `<div class="no-data" style="color: red;">履歴の読み込みに失敗しました。</div>`;
+                        container.textContent = "";
+                        const errorDiv = document.createElement("div");
+                        errorDiv.className = "no-data";
+                        errorDiv.style.color = "red";
+                        errorDiv.textContent = "履歴の読み込みに失敗しました。";
+                        container.appendChild(errorDiv);
                     }
                 });
 
@@ -147,7 +180,8 @@
                     console.error("匿名ログイン失敗:", error);
                 }
             }
-        }); 
+        });
+
          </script>
 </body>
 </html>

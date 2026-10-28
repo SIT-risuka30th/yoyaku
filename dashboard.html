@@ -103,6 +103,7 @@
 
   
   <script type="module">
+    self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
     import { getFirestore, doc, deleteDoc, updateDoc, onSnapshot, collection, query, addDoc, orderBy, serverTimestamp, where, getDocs} from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
     import { getDatabase, ref, onValue} from  "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
@@ -145,21 +146,22 @@ if (Notification.permission === "default") {
 // ==========================================
 // 🔒 ログイン状態を監視し、確認後に全機能を開始する
 // ==========================================
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async(user) => {
     if (user) {
-        console.log("管理者としてログイン確認が取れました！UID:", user.uid);
-        
-        // ログインが確認できてから、すべてのデータ監視をスタートさせる
-        startOnlineUsersCounter();
-        startVisitorCounter();
-        startOrdersMonitoring();
-        startEnquiriesMonitoring();
-        startNewsMonitoring();
-        setupNewsForm();
+        console.log("一時的にチェックをスキップして、データ読み込みを開始します。");
+
+        // 🛡️ あなたのコードに定義されている【本物】の関数をすべてここで一斉起動します
+        startOnlineUsersCounter();   // 🌐 同時滞在者数のカウント開始
+        startVisitorCounter();       // 📊 アクセスカウンターの監視開始
+        startOrdersMonitoring();     // 📦 ② 注文データのリアルタイム監視開始
+        startEnquiriesMonitoring();  // ✉️ ③ 問い合わせデータのリアルタイム監視開始
+        startNewsMonitoring();       // 📢 ④ お知らせデータのリアルタイム監視開始
+        setupNewsForm();             // 📥 ⑤ お知らせ投稿フォームのボタン処理を有効化
+
+        console.log("すべてのデータ通信（リアルタイム監視）の命令を送信しました。");
+
     } else {
-        // 未ログイン状態なら、エラーを起こさず即座にログイン画面へ戻す
-        alert("ログインが必要です。");
-        window.location.href = "login.html"; // 必要に応じてあなたのログインHTML名に変えてください
+        window.location.href = "login.html";
     }
 });
 
@@ -200,37 +202,40 @@ function startVisitorCounter() {
 
 // --- 📦 ② 注文データのリアルタイム監視 ---
 function startOrdersMonitoring() {
-    const ordersQuery = query(
-        collection(db, "orders"), 
-        where("isDeleted", "!=", true),
-        orderBy("isDeleted", "asc"), 
-        orderBy("createdAt", "desc")
-    );
+    // 🛡️ Firestore用ではなく、Realtime Database（rtdb）の 'orders' を見に行くように変更
+    const ordersRef = ref(rtdb, 'orders'); 
 
     let isInitialLoad = true;
 
-    onSnapshot(ordersQuery, (querySnapshot) => {
+    // 🛡️ onSnapshot ではなく Realtime Database 用の onValue でリアルタイム監視します
+    onValue(ordersRef, (snapshot) => {
         const tableBody = document.getElementById("orderTableBody");
         if (!tableBody) return;
         
         tableBody.innerHTML = "";
 
-        if (querySnapshot.empty) {
+        // 📝 注文データが1件もない場合の処理
+        if (!snapshot.exists()) {
             tableBody.innerHTML = `<tr><td colspan="6" style="padding: 20px; text-align: center; color: #999;">まだ注文はありません。</td></tr>`;
             isInitialLoad = false; 
             return;
         }
 
         const orderRows = [];
-        let newOrderName = ""; 
+        const data = snapshot.val();
+        let newOrderName = "";
 
-        querySnapshot.docChanges().forEach((change) => {
-            if (change.type === "added" && !isInitialLoad) {
-                const data = change.doc.data();
-                newOrderName = data.name || "不明";
+        // 🔔 新しい注文の通知チェック処理
+        if (!isInitialLoad) {
+            // 最も新しい（最後に追加された）注文を確認
+            const keys = Object.keys(data);
+            const latestKey = keys[keys.length - 1];
+            if (data[latestKey] && !data[latestKey].isDeleted) {
+                newOrderName = data[latestKey].name || "不明";
             }
-        });
+        }
 
+        // 🔔 新着通知（ブラウザ通知と音）
         if (newOrderName) {
             if (Notification.permission === "granted") {
                 new Notification("🔔 新しい予約が届きました！", {
@@ -247,22 +252,17 @@ function startOrdersMonitoring() {
                     const playTone = (startTime, duration, frequency) => {
                         const oscillator = audioCtx.createOscillator();
                         const gainNode = audioCtx.createGain();
-                        
                         oscillator.connect(gainNode);
                         gainNode.connect(audioCtx.destination);
-                        
                         oscillator.type = 'sine';
                         oscillator.frequency.setValueAtTime(frequency, startTime);
-                        
                         gainNode.gain.setValueAtTime(0, startTime);
                         gainNode.gain.linearRampToValueAtTime(0.15, startTime + 0.02); 
                         gainNode.gain.setValueAtTime(0.15, startTime + duration - 0.02);
                         gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
-                        
                         oscillator.start(startTime);
                         oscillator.stop(startTime + duration);
                     };
-
                     const now = audioCtx.currentTime;
                     playTone(now, 0.08, 987.77);       
                     playTone(now + 0.1, 0.08, 987.77);
@@ -276,17 +276,21 @@ function startOrdersMonitoring() {
             }
         }
 
-        querySnapshot.forEach((orderDoc) => {
-            const data = orderDoc.data();
-            const docId = orderDoc.id; 
-            
-            const gakunen = data.gakunen || "";
-            const className = data.className || "";
-            const number = data.number || "-";
-            const name = data.name || "不明";
-            const items = data.items || "なし";
-            const totalPrice = data.totalPrice ? data.totalPrice.toLocaleString() + "円" : "0円";
-            const userKey = data.userId || `${gakunen}-${className}-${number}`;
+        // 📦 データを1件ずつ処理してテーブルの行を組み立て（Realtime Databaseのループ方法）
+        // 💡 注文を新しい順（下から上）に並べるため、配列を逆順にします
+        const docIds = Object.keys(data).reverse();
+
+        docIds.forEach((docId) => {
+            const order = data[docId];
+            if (order.isDeleted === true) return; // 削除済みはスキップ
+
+            const gakunen = order.gakunen || "";
+            const className = order.className || "";
+            const number = order.number || "-";
+            const name = order.name || "不明";
+            const items = order.items || "なし";
+            const totalPrice = order.totalPrice ? order.totalPrice.toLocaleString() + "円" : "0円";
+            const userKey = order.userId || `${gakunen}-${className}-${number}`;
           
             const rowHTML = `
                 <tr style="border-bottom: 1px solid #eee;">
@@ -304,16 +308,18 @@ function startOrdersMonitoring() {
             orderRows.push(rowHTML);
         });
 
-        tableBody.innerHTML = orderRows.join("");
+        tableBody.innerHTML = orderRows.length > 0 ? orderRows.join("") : `<tr><td colspan="6" style="padding: 20px; text-align: center; color: #999;">まだ注文はありません。</td></tr>`;
 
-        // 削除ボタンイベント
+        // 🗑️ 削除ボタンイベントの処理
         tableBody.querySelectorAll('.btn-delete').forEach(button => {
             button.addEventListener('click', async (e) => {
-                const id = e.target.getAttribute('data-id');
+                const id = e.currentTarget.getAttribute('data-id'); // ✅ e.target から e.currentTarget に修正してバグ防止
                 if (id && confirm("この注文データを非表示にしてもよろしいですか？")) {
                     try {
-                        await updateDoc(doc(db, "orders", id), { isDeleted: true });
-                        const row = e.target.closest('tr');
+                        // 🛡️ FirestoreではなくRealtime Databaseのデータを更新する命令に変更
+                        const targetRef = ref(rtdb, `orders/${id}`);
+                        await update(targetRef, { isDeleted: true });
+                        const row = e.currentTarget.closest('tr');
                         if (row) row.remove();
                     } catch (error) {
                         console.error("非表示エラー:", error);
@@ -323,11 +329,11 @@ function startOrdersMonitoring() {
             });
         });
 
-        // リセットボタンイベント
+        // 🔑 リセットボタンイベントの処理
         tableBody.querySelectorAll('.btn-reset-pin').forEach(button => {
             button.addEventListener('click', async (e) => {
-                const targetKey = e.target.getAttribute('data-userkey');
-                const targetName = e.target.getAttribute('data-name');
+                const targetKey = e.currentTarget.getAttribute('data-userkey');
+                const targetName = e.currentTarget.getAttribute('data-name');
                 
                 if (!targetKey || targetKey === "--") {
                     alert("生徒の情報が不完全なため、暗証番号を特定してリセットできません。");
@@ -335,7 +341,9 @@ function startOrdersMonitoring() {
                 }
                 if (confirm(`【確認】\n${targetName} さん (${targetKey}) の暗証番号をリセットしますか？\n\nリセットすると、この生徒は次回注文時に新しい暗証番号を設定し直すことができるようになります。`)) {
                     try {
-                        await deleteDoc(doc(db, "users", targetKey));
+                        // 🛡️ Realtime Database（rtdb）のユーザーデータを削除する命令に変更
+                        const userRef = ref(rtdb, `users/${targetKey}`);
+                        await remove(userRef);
                         alert(`${targetName} さんの暗証番号をリセットしました。`);
                     } catch (error) {
                         console.error("暗証番号リセットエラー:", error);
@@ -344,7 +352,8 @@ function startOrdersMonitoring() {
                 }
             });
         });
-                isInitialLoad = false; 
+
+        isInitialLoad = false; 
     }, (error) => {
         console.error("注文データの取得エラー:", error);
         const tableBody = document.getElementById("orderTableBody");
@@ -353,6 +362,7 @@ function startOrdersMonitoring() {
         }
     });
 }
+
 
 // --- ✉️ ③ 問い合わせデータのリアルタイム監視 ---
 function startEnquiriesMonitoring() {

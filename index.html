@@ -103,7 +103,6 @@ function trackPresence() {
 async function countTodayView() {
     if (sessionStorage.getItem('counted_today')) return;
 
-    // 💡 日付の取得ミスを [0] をつけて修正しました
     const today = new Date().toISOString().split('T')[0];
     const todayDocRef = doc(db, "analytics", today);
 
@@ -128,13 +127,13 @@ function listenNewsUpdates() {
     const newsQuery = query(collection(db, "news"), orderBy("date", "desc"));
 
     onSnapshot(newsQuery, (querySnapshot) => {
-        container.innerHTML = "";
+        container.textContent = "";
 
         if (querySnapshot.empty) {
-            container.innerHTML = `
-                <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; text-align: center; color: #777; border: 1px dashed #ccc;">
-                    現在、新しいお知らせはありません。
-                </div>`;
+            container.noNewsDiv = document.createElement("div");
+                noNewsDiv.style.cssText = "background: #f8f9fa; padding: 20px; border-radius: 8px; text-align: center; color: #777; border: 1px dashed #ccc;";
+                noNewsDiv.textContent = "現在、新しいお知らせはありません。";
+                container.appendChild(noNewsDiv);
             return;
         }
 
@@ -142,17 +141,26 @@ function listenNewsUpdates() {
             const data = newsDoc.data();
             const body = data.body || "";
             
-            const dateStr = data.date ? data.date.toDate().toLocaleDateString('ja-JP',{
+            const dateStr = data.date ? data.date.toDate().toLocaleDateString('ja-JP', {
                 year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
             }) : "---";
 
-            const cardHTML = `
-                <div class="news-card" style="background: #ffffff; padding: 15px 20px; border-radius: 8px; box-shadow: 2px 2px 6px rgba(0,0,0,0.08); border-left: 5px solid #4169e1; margin-bottom: 12px; text-align: left;">
-                    <div style="font-size: 13px; color: #888; margin-bottom: 5px; font-weight: bold;">🕒 ${dateStr}</div>
-                    <p style="margin: 0; font-size: 18px; color: #555; white-space: pre-wrap; line-height: 1.5;">${body}</p>
-                </div>
-            `;
-            container.innerHTML += cardHTML;
+            const cardDiv = document.createElement("div");
+            cardDiv.className = "news-card";
+            cardDiv.style.cssText = "background: #ffffff; padding: 15px 20px; border-radius: 8px; box-shadow: 2px 2px 6px rgba(0,0,0,0.08); border-left: 5px solid #4169e1; margin-bottom: 12px; text-align: left;";
+
+            const dateDiv = document.createElement("div");
+            dateDiv.style.cssText = "font-size: 13px; color: #888; margin-bottom: 5px; font-weight: bold;";
+            dateDiv.textContent = `🕒 ${dateStr}`;
+
+            const bodyP = document.createElement("p");
+            bodyP.style.cssText = "margin: 0; font-size: 18px; color: #555; white-space: pre-wrap; line-height: 1.5;";
+            bodyP.textContent = body;
+
+            cardDiv.appendChild(dateDiv);
+            cardDiv.appendChild(bodyP);
+            container.appendChild(cardDiv);
+
         });
     }, (error) => {
         console.error("生徒側お知らせ取得エラー:", error);
