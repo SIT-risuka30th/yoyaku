@@ -68,25 +68,11 @@ let audioCtx = null;
 // ==========================================
 // 🔒 匿名ログイン状態を監視し、成功後に各機能を実行
 // ==========================================
-onAuthStateChanged(auth, async (user) => {
-    if (user) {
-        console.log("生徒側：接続の準備が整いました。UID:", user.uid);
-
-        
-       trackPresence();
-        countTodayView();
-
-         setTimeout(() => {
-            listenNewsUpdates();
-        }, 300);
-
-     } else {
-        try {
-            await signInAnonymously(auth);
-        } catch (error) {
-            console.error("匿名接続に失敗しました:", error);
-        }
-    }
+window.addEventListener('DOMContentLoaded', () => {
+    console.log("生徒側：ログインなしでデータ通信を開始します。");
+    trackPresence();      // 🌐 オンライン滞在者の記録（rtdb用）
+    countTodayView();     // 📅 訪問者数カウントアップ（db用）
+    listenNewsUpdates();  // 📢 お知らせのリアルタイム取得（db用）
 });
 
 // --- 🌐 オンライン滞在者の記録機能 ---
