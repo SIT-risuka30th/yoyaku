@@ -63,8 +63,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (!historyBody) return;
 
     try {
-        // Firestore(db)の「orders」コレクションから、過去に削除された（isDeleted: true）データも含めてすべて読み込む
-        // または過去ログ専用の「history」コレクションがある場合はコレクション名を書き換えてください
         const historyQuery = query(collection(db, "orders"), orderBy("createdAt", "desc"));
         
         onSnapshot(historyQuery, (querySnapshot) => {

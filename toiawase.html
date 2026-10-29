@@ -79,7 +79,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+    import {getDatabase, ref, push} from "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyBtLHgM6RzCU_grTElSqLCmsaRu4rVe-4o", 
@@ -90,7 +90,10 @@
         appId: "1:934504714342:web:e160ada63fcfcd906c5da7"
     };
 
-    const contactForm = document.getElementById("contactForm") || document.querySelector("form");
+const app = initializeApp(firebaseConfig);
+const rtdb = getDatabase(app);
+
+const contactForm = document.getElementById("contactForm") || document.querySelector("form");
 const sendButton = document.querySelector("button, input[type='button']");
 
 if (contactForm) {
@@ -117,7 +120,8 @@ async function executeSendEnquiry() {
         return;
     }
 
-    const gakunen = gakunenSelect ? gakunenSelect.value : "";
+
+     const gakunen = gakunenSelect ? gakunenSelect.value : "";
     const className = classSelect ? classSelect.value : "";
     const number = numberInput ? numberInput.value : "";
     const name = nameInput ? nameInput.value : "不明";
@@ -126,8 +130,7 @@ async function executeSendEnquiry() {
     const userKey = `${gakunen}-${className}-${number}`;
 
     try {
-        // 🛡️ 管理者ダッシュボードがリアルタイム待機（監理）している Realtime Database の「enquiries」へ送信
-        const enquiriesRef = ref(rtdb, 'enquiries');
+         const enquiriesRef = ref(rtdb, 'enquiries');
         await push(enquiriesRef, {
             userKey: userKey,
             name: name,
