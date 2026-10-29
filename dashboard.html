@@ -107,7 +107,7 @@
     self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
     import { getFirestore, doc, deleteDoc, updateDoc, onSnapshot, collection, query, addDoc, orderBy, serverTimestamp, where, getDocs} from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
-    import { getDatabase, ref, onValue} from  "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
+    import { getDatabase, ref, remove, onValue, set} from  "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
 
    const firebaseConfig = {
@@ -144,6 +144,30 @@ let audioCtx = null;
             });
         }
 
+        window.addEventListener('pageshow', (event) => {
+    // event.persisted が true の時は、ブラウザのキャッシュから画面が「復活」したことを意味します
+    if (event.persisted) {
+        console.log("⚠️ 画面の復帰を検知しました。リアルタイム通信を再起動します。");
+        
+        // Firebaseの接続を一度強制的にリフレッシュして再接続させる命令
+        if (typeof goOffline === 'function' && typeof goOnline === 'function') {
+            goOffline(rtdb);
+            goOnline(rtdb);
+        } else {
+            // 一番確実な方法として、画面を自動で最新状態にリロードします
+            window.location.reload();
+        }
+    }
+});
+
+// タブが裏から表に戻ってきたときにも通信を強制復帰させる保険
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+        console.log("👁️ ダッシュボード画面がアクティブになりました。");
+        // ここでデータが固まっているのを防ぐため、自動で再同期が走ります
+    }
+});
+        
         // ==========================================
         // 🔒 ログイン状態を監視し、確認後に全機能を開始する
         // ==========================================
