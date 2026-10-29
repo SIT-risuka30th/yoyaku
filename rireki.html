@@ -50,8 +50,10 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
     import { getFirestore, onSnapshot, collection, query, orderBy} from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from"https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
 
-        // 1. ✅ 設定に databaseURL（本物のデータがある場所の住所）を追加
+
+
         const firebaseConfig = {
             apiKey: "AIzaSyBtLHgM6RzCU_grTElSqLCmsaRu4rVe-4o", 
             authDomain: "koubai-7b6a6.firebaseapp.com", 
@@ -64,6 +66,7 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+        const auth = getAuth(app);
 
         window.addEventListener('DOMContentLoaded', () => {
             const historyBody = document.getElementById("historyTableBody");
@@ -72,70 +75,80 @@
             
             if (!historyBody) return;
 
-            try {
-                // 自動インデックスと連携した高効率リアルタイム監視
-                const historyQuery = query(collection(db, "orders"), orderBy("createdAt", "desc"));
+            onAuthStateChanged(auth, (user) => {
+            if (user) {
+                console.log("管理者認証に成功しました。履歴データの同期を開始します。");
                 
-                onSnapshot(historyQuery, (querySnapshot) => {
-                    historyBody.textContent = ""; 
+                try {
+                    // ログインが通っていれば、orderByのクエリも100%正常に承認されます
+                    const historyQuery = query(collection(db, "orders"), orderBy("createdAt", "desc"));
                     
-                    if (querySnapshot.empty) {
+                    onSnapshot(historyQuery, (querySnapshot) => {
+                        historyBody.textContent = ""; 
+                        
+                        if (querySnapshot.empty) {
+                            if (statusPlaceholder) {
+                                statusPlaceholder.style.display = "block";
+                                statusPlaceholder.textContent = "購入履歴データはまだ登録されていません。";
+                            }
+                            if (tableCard) tableCard.style.display = "none";
+                            return;
+                        }
+
+                        if (statusPlaceholder) statusPlaceholder.style.display = "none";
+                        if (tableCard) tableCard.style.display = "block";
+
+                        querySnapshot.forEach((doc) => {
+                            const data = doc.data();
+                            const gakunen = data.gakunen || "";
+                            const className = data.className || "";
+                            const number = data.number || "-";
+                            const name = data.name || "不明";
+                            const items = data.items || data.details || "なし";
+                            const totalPrice = data.totalPrice ? data.totalPrice.toLocaleString() + "円" : "0円";
+                            
+                            let dateStr = "---";
+                            if (data.createdAt && typeof data.createdAt.toDate === "function") {
+                                dateStr = data.createdAt.toDate().toLocaleDateString('ja-JP', {
+                                    month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+                                });
+                            }
+
+                            const tr = document.createElement("tr");
+                            
+                            if (data.isDeleted === true) {
+                                tr.className = "status-deleted";
+                            }
+
+                            tr.innerHTML = `
+                                <td style="color: #666;">${dateStr}</td>
+                                <td>${gakunen}年${className}組</td>
+                                <td>${number}番</td>
+                                <td class="name-cell">${name}</td>
+                                <td style="color: #4c566a; font-size: 14px; max-width: 350px; word-wrap: break-word;">${items}</td>
+                                <td class="price-cell">${totalPrice}</td>
+                            `;
+                            historyBody.appendChild(tr);
+                        });
+                        console.log("履歴データの読み込みと画面反映に成功しました。");
+                    }, (error) => {
+                        console.error("履歴データ同期エラー:", error);
                         if (statusPlaceholder) {
-                            statusPlaceholder.style.display = "block";
-                            statusPlaceholder.textContent = "📂 購入履歴データはまだ登録されていません。";
+                            statusPlaceholder.className = "status-message status-error";
+                            statusPlaceholder.textContent = " データのロード権限がありません。ルール設定を確認してください。";
                         }
                         if (tableCard) tableCard.style.display = "none";
-                        return;
-                    }
-
-                    if (statusPlaceholder) statusPlaceholder.style.display = "none";
-                    if (tableCard) tableCard.style.display = "block";
-
-                    querySnapshot.forEach((doc) => {
-                        const data = doc.data();
-                        const gakunen = data.gakunen || "";
-                        const className = data.className || "";
-                        const number = data.number || "-";
-                        const name = data.name || "不明";
-                        const items = data.items || data.details || "なし";
-                        const totalPrice = data.totalPrice ? data.totalPrice.toLocaleString() + "円" : "0円";
-                        
-                        let dateStr = "---";
-                        if (data.createdAt && typeof data.createdAt.toDate === "function") {
-                            dateStr = data.createdAt.toDate().toLocaleDateString('ja-JP', {
-                                month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
-                            });
-                        }
-
-                        const tr = document.createElement("tr");
-                        
-                        if (data.isDeleted === true) {
-                            tr.className = "status-deleted";
-                        }
-
-                        tr.innerHTML = `
-                            <td style="color: #666;">${dateStr}</td>
-                            <td>${gakunen}年${className}組</td>
-                            <td>${number}番</td>
-                            <td class="name-cell">${name}</td>
-                            <td style="color: #4c566a; font-size: 14px; max-width: 350px; word-wrap: break-word;">${items}</td>
-                            <td class="price-cell">${totalPrice}</td>
-                        `;
-                        historyBody.appendChild(tr);
                     });
-                    console.log("履歴データの読み込みと画面反映に成功しました。");
-                }, (error) => {
-                    console.error("履歴データ同期エラー:", error);
-                    if (statusPlaceholder) {
-                        statusPlaceholder.className = "status-message status-error";
-                        statusPlaceholder.textContent = "❌ データのロード権限がありません。ルール設定を確認してください。";
-                    }
-                    if (tableCard) tableCard.style.display = "none";
-                });
-            } catch (error) {
-                console.error("初期化時クラッシュ:", error);
+                } catch (error) {
+                    console.error("初期化時クラッシュ:", error);
+                }
+
+            } else {
+                console.warn("未ログイン状態です。ログイン画面へ移動します。");
+                window.location.href = "login.html";
             }
         });
+    });
 </script>
 </body>
 </html>
