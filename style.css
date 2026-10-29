@@ -332,3 +332,113 @@ td{
 .back-link a:hover {
     text-decoration: underline;
 }
+
+.history-page-body { 
+    font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif; 
+    margin: 0; 
+    padding: 0;
+    background-color: #f4f6f9; 
+    color: #333;
+}
+
+.history-container {
+    max-width: 1200px;
+    margin: 40px auto;
+    padding: 0 20px;
+}
+
+h1.page-title {
+    font-size: 24px;
+    color: #2c3e50;
+    margin-bottom: 20px;
+    border-left: 5px solid #28a745;
+    padding-left: 15px;
+}
+
+.back-link { 
+    margin-bottom: 25px; 
+}
+.back-link a { 
+    color: #28a745; 
+    text-decoration: none; 
+    font-weight: bold; 
+    font-size: 16px;
+    display: inline-flex;
+    align-items: center;
+    transition: color 0.2s;
+}
+.back-link a:hover {
+    color: #218838;
+}
+
+.table-card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+    margin-top: 20px;
+}
+
+.history-table { 
+    width: 100%; 
+    border-collapse: collapse; 
+    text-align: left; 
+}
+
+.history-table th, 
+.history-table td { 
+    padding: 14px 16px; 
+    font-size: 15px;
+}
+
+.history-table th { 
+    background-color: #28a745; 
+    color: white; 
+    font-weight: 600; 
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid #218838;
+} 
+
+.history-table tbody tr {
+    border-bottom: 1px solid #ebeef5;
+    transition: background-color 0.2s;
+}
+
+.history-table tbody tr:hover {
+    background-color: #f9fbf9;
+}
+
+td.price-cell {
+    font-weight: bold; 
+    color: #e67e22;
+}
+
+td.name-cell {
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+/* 削除済みの注文行を薄くするデザイン */
+tr.status-deleted {
+    opacity: 0.55;
+    background-color: #fdf2f2 !important;
+}
+tr.status-deleted:hover {
+    background-color: #fbebeb !important;
+}
+
+/* ステータス・エラーメッセージ */
+.status-message { 
+    font-size: 16px; 
+    color: #666; 
+    padding: 40px;
+    text-align: center; 
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    font-weight: bold;
+}
+.status-error {
+    color: #dc3545;
+    border-left: 4px solid #dc3545;
+}

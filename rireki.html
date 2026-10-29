@@ -19,24 +19,33 @@
     </header>
 <body>
 
-  <h2><a href="dashboard.html">ダッシュボードに戻る</a></h2>
-  <h1>【管理者用】過去の購入履歴一覧</h1>
+   <div class="history-container">
+        <div class="back-link">
+            <a href="dashboard.html">← ダッシュボードへ戻る</a>
+        </div>
+        
+        <h1 class="page-title">過去の購入履歴一括ログ（全データ）</h1>
   
-<div id="table-container">
-        <div id="loading" class="loading">Firestoreから履歴を読み込み中...</div>
+<div id="statusPlaceholder" class="status-message">⏳ Firestoreから履歴データを同期中</div>
+
+ <div class="table-card" id="tableCard" style="display: none;">
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th style="width: 15%;">注文日時</th>
+                        <th style="width: 15%;">学年・クラス</th>
+                        <th style="width: 10%;">番号</th>
+                        <th style="width: 20%;">氏名</th>
+                        <th style="width: 25%;">注文内訳</th>
+                        <th style="width: 15%;">合計決済額</th>
+                    </tr>
+                </thead>
+                <tbody id="historyTableBody">
+                    <!-- JavaScriptによってFirestoreのデータが注入されます -->
+                </tbody>
+            </table>
+        </div>
     </div>
-
-
-    <style>
-    body { font-family: sans-serif; margin: 30px; background-color: #f8f9fa; }
-    h1 { color: #333; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
-    th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-    th { background-color: #28a745; color: white; } /* 管理者用として緑基調にしています */
-    tr:nth-child(even) { background-color: #f2f2f2; }
-    .loading { font-size: 18px; color: #666; }
-  </style>
-
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
@@ -56,65 +65,77 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-window.addEventListener('DOMContentLoaded', async () => {
-    const historyBody = document.getElementById("historyTableBody") || document.querySelector("tbody");
-    if (!historyBody) return;
+        window.addEventListener('DOMContentLoaded', () => {
+            const historyBody = document.getElementById("historyTableBody");
+            const statusPlaceholder = document.getElementById("statusPlaceholder");
+            const tableCard = document.getElementById("tableCard");
+            
+            if (!historyBody) return;
 
-     try {
-        const historyQuery = query(collection(db, "orders"), orderBy("createdAt", "desc"));
-        
-        
-      onSnapshot(historyQuery, (querySnapshot) => {
-            historyBody.textContent = ""; 
-
-            if (querySnapshot.empty) {
-                historyBody.innerHTML = `<tr><td colspan="6" style="padding: 20px; text-align: center; color: #999;">購入履歴データはありません。</td></tr>`;
-                return;
-            }
-
-            querySnapshot.forEach((doc) => {
-                const data = doc.data();
-                const gakunen = data.gakunen || "";
-                const className = data.className || "";
-                const number = data.number || "-";
-                const name = data.name || "不明";
-                const items = data.items || data.details || "なし";
-                const totalPrice = data.totalPrice ? data.totalPrice.toLocaleString() + "円" : "0円";
+            try {
+                // 自動インデックスと連携した高効率リアルタイム監視
+                const historyQuery = query(collection(db, "orders"), orderBy("createdAt", "desc"));
                 
-                let dateStr = "---";
-                if (data.createdAt && typeof data.createdAt.toDate === "function") {
-                    dateStr = data.createdAt.toDate().toLocaleDateString('ja-JP', {
-                        month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+                onSnapshot(historyQuery, (querySnapshot) => {
+                    historyBody.textContent = ""; 
+                    
+                    if (querySnapshot.empty) {
+                        if (statusPlaceholder) {
+                            statusPlaceholder.style.display = "block";
+                            statusPlaceholder.textContent = "📂 購入履歴データはまだ登録されていません。";
+                        }
+                        if (tableCard) tableCard.style.display = "none";
+                        return;
+                    }
+
+                    if (statusPlaceholder) statusPlaceholder.style.display = "none";
+                    if (tableCard) tableCard.style.display = "block";
+
+                    querySnapshot.forEach((doc) => {
+                        const data = doc.data();
+                        const gakunen = data.gakunen || "";
+                        const className = data.className || "";
+                        const number = data.number || "-";
+                        const name = data.name || "不明";
+                        const items = data.items || data.details || "なし";
+                        const totalPrice = data.totalPrice ? data.totalPrice.toLocaleString() + "円" : "0円";
+                        
+                        let dateStr = "---";
+                        if (data.createdAt && typeof data.createdAt.toDate === "function") {
+                            dateStr = data.createdAt.toDate().toLocaleDateString('ja-JP', {
+                                month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+                            });
+                        }
+
+                        const tr = document.createElement("tr");
+                        
+                        if (data.isDeleted === true) {
+                            tr.className = "status-deleted";
+                        }
+
+                        tr.innerHTML = `
+                            <td style="color: #666;">${dateStr}</td>
+                            <td>${gakunen}年${className}組</td>
+                            <td>${number}番</td>
+                            <td class="name-cell">${name}</td>
+                            <td style="color: #4c566a; font-size: 14px; max-width: 350px; word-wrap: break-word;">${items}</td>
+                            <td class="price-cell">${totalPrice}</td>
+                        `;
+                        historyBody.appendChild(tr);
                     });
-                }
-
-            const tr = document.createElement("tr");
-                tr.style.borderBottom = "1px solid #eee";
-          
-                
-                 if (data.isDeleted === true) {
-                    tr.style.opacity = "0.6";
-                    tr.style.backgroundColor = "#fdf2f2";
-                }
-
-                tr.innerHTML = `
-                    <td style="padding: 12px 10px; color: #555;">${dateStr}</td>
-                    <td style="padding: 12px 10px; color: #555;">${gakunen}年${className}組</td>
-                    <td style="padding: 12px 10px; color: #555;">${number}番</td>
-                    <td style="padding: 12px 10px; font-weight: bold; color: #333;">${name}</td>
-                    <td style="padding: 12px 10px; color: #666; font-size: 14px;">${items}</td>
-                    <td style="padding: 12px 10px; font-weight: bold; color: #e67e22;">${totalPrice}</td>
-                `;
-                historyBody.appendChild(tr);
-            });
-           }, (error) => {
-            // 🚨 ここでコンソールにインデックス作成用の特別リンクが印字されます
-            console.error("履歴データ取得エラー:", error);
+                    console.log("履歴データの読み込みと画面反映に成功しました。");
+                }, (error) => {
+                    console.error("履歴データ同期エラー:", error);
+                    if (statusPlaceholder) {
+                        statusPlaceholder.className = "status-message status-error";
+                        statusPlaceholder.textContent = "❌ データのロード権限がありません。ルール設定を確認してください。";
+                    }
+                    if (tableCard) tableCard.style.display = "none";
+                });
+            } catch (error) {
+                console.error("初期化時クラッシュ:", error);
+            }
         });
-    } catch (error) {
-        console.error("履歴処理クラッシュ:", error);
-    }
-});
 </script>
 </body>
 </html>
