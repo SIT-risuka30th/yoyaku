@@ -71,14 +71,16 @@ let audioCtx = null;
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         console.log("生徒側：接続の準備が整いました。UID:", user.uid);
-        
-        // 匿名ログインが完了した後に、すべての処理を安全に実行します
-        trackPresence();
-        countTodayView();
-        listenNewsUpdates();
 
-    } else {
-        // ログインしていない場合は裏側で自動的に匿名ログイン
+        
+       trackPresence();
+        countTodayView();
+
+         setTimeout(() => {
+            listenNewsUpdates();
+        }, 300);
+
+     } else {
         try {
             await signInAnonymously(auth);
         } catch (error) {
@@ -91,21 +93,15 @@ onAuthStateChanged(auth, async (user) => {
 function trackPresence() {
     const onlineUsersRef = ref(rtdb, 'online_users');
     const myUserRef = push(onlineUsersRef);
-
-    // 1. ページを開いたとき：自分を追加
     set(myUserRef, true);
-
-    // 2. ページを閉じたとき：自動的に削除する予約
     onDisconnect(myUserRef).remove();
 }
 
 // --- 📅 今日の訪問者数をカウントアップする機能 ---
 async function countTodayView() {
     if (sessionStorage.getItem('counted_today')) return;
-
     const today = new Date().toISOString().split('T')[0];
     const todayDocRef = doc(db, "analytics", today);
-
     try {
         const docSnap = await getDoc(todayDocRef);
         if (docSnap.exists()) {
@@ -124,26 +120,35 @@ function listenNewsUpdates() {
     const container = document.getElementById("news-list-container");
     if (!container) return;
 
-    const newsQuery = query(collection(db, "news"), orderBy("date", "desc"));
+      const newsQuery = query(collection(db, "news"), orderBy("date", "desc"));
 
     onSnapshot(newsQuery, (querySnapshot) => {
         container.textContent = "";
 
-        if (querySnapshot.empty) {
-            container.noNewsDiv = document.createElement("div");
-                noNewsDiv.style.cssText = "background: #f8f9fa; padding: 20px; border-radius: 8px; text-align: center; color: #777; border: 1px dashed #ccc;";
-                noNewsDiv.textContent = "現在、新しいお知らせはありません。";
-                container.appendChild(noNewsDiv);
+       if (querySnapshot.empty) {
+            const noNewsDiv = document.createElement("div");
+            noNewsDiv.style.cssText = "background: #f8f9fa; padding: 20px; border-radius: 8px; text-align: center; color: #777; border: 1px dashed #ccc;";
+            noNewsDiv.textContent = "現在、新しいお知らせはありません。";
+            container.appendChild(noNewsDiv);
             return;
         }
 
-        querySnapshot.forEach((newsDoc) => {
+          querySnapshot.forEach((newsDoc) => {
             const data = newsDoc.data();
-            const body = data.body || "";
+            const body = data.body || data.content || "";
             
-            const dateStr = data.date ? data.date.toDate().toLocaleDateString('ja-JP', {
-                year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
-            }) : "---";
+            let dateStr = "---";
+            if (data.date) {
+                if (typeof data.date.toDate === "function") {
+                    dateStr = data.date.toDate().toLocaleDateString('ja-JP', {
+                        year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+                    });
+                } else if (data.date.seconds) {
+                    dateStr = new Date(data.date.seconds * 1000).toLocaleDateString('ja-JP', {
+                        year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+                    });
+                }
+            }
 
             const cardDiv = document.createElement("div");
             cardDiv.className = "news-card";
@@ -160,10 +165,10 @@ function listenNewsUpdates() {
             cardDiv.appendChild(dateDiv);
             cardDiv.appendChild(bodyP);
             container.appendChild(cardDiv);
-
         });
     }, (error) => {
         console.error("生徒側お知らせ取得エラー:", error);
+        container.textContent = "お知らせの読み込みに失敗しました。認証の同期を確認してください。";
     });
 }
 </script>
