@@ -124,6 +124,21 @@
                     <td id="displayD11" class="data-text">未入力</td>
                     <td id="priceD11" class="price-text">0円</td>
                 </tr>
+                  <tr id="rowD12">
+                    <td>伊右衛門 焙じ茶</td>
+                    <td id="displayD12" class="data-text">未入力</td>
+                    <td id="priceD12" class="price-text">0円</td>
+                </tr>
+                <tr id="rowD13">
+                    <td>伊右衛門 緑茶</td>
+                    <td id="displayD13" class="data-text">未入力</td>
+                    <td id="priceD13" class="price-text">0円</td>
+                </tr>
+                <tr id="rowD14">
+                    <td>レモンスカッシュ</td>
+                    <td id="displayD13" class="data-text">未入力</td>
+                    <td id="priceD13" class="price-text">0円</td>
+                </tr>
             </tbody>
         </table>
 
@@ -301,6 +316,9 @@ onAuthStateChanged(auth, async (user) => {
     const PRICE_D9 = 170;
     const PRICE_D10 = 140;
     const PRICE_D11 = 170;
+    const PRICE_D12 = 170;
+    const PRICE_D13 = 170;
+    const PRICE_D14 = 170;
 
     // 3. 表示と非表示、テキスト代入をまとめた関数
     function handleRow(rowId, countId, priceId, count, price) {
@@ -335,6 +353,9 @@ onAuthStateChanged(auth, async (user) => {
     const rawD9 = localStorage.getItem('inputD9') || "";
     const rawD10 = localStorage.getItem('inputD10') || "";
     const rawD11 = localStorage.getItem('inputD11') || "";
+    const rawD12 = localStorage.getItem('inputD12') || "";
+    const rawD13 = localStorage.getItem('inputD13') || "";
+    const rawD14 = localStorage.getItem('inputD14') || "";
 
     const savedF1 = parseInt(rawF1.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
     const savedF2 = parseInt(rawF2.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
@@ -355,7 +376,10 @@ onAuthStateChanged(auth, async (user) => {
     const savedD9 = parseInt(rawD9.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
     const savedD10 = parseInt(rawD10.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
     const savedD11 = parseInt(rawD11.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
-    
+    const savedD12 = parseInt(rawD12.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
+    const savedD13 = parseInt(rawD13.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
+    const savedD14 = parseInt(rawD14.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
+
 
     const totalF1 = savedF1 * PRICE_F1;
     const totalF2 = savedF2 * PRICE_F2;
@@ -375,6 +399,9 @@ onAuthStateChanged(auth, async (user) => {
     const totalD9 = savedD9 * PRICE_D9;
     const totalD10 = savedD10 * PRICE_D10;
     const totalD11 = savedD11 * PRICE_D11;
+    const totalD12 = savedD12 * PRICE_D12;
+    const totalD13 = savedD13 * PRICE_D13;
+    const totalD14 = savedD14 * PRICE_D14;
 
     handleRow('rowF1', 'displayF1', 'priceF1', savedF1, totalF1);
     handleRow('rowF2', 'displayF2', 'priceF2', savedF2, totalF2);
@@ -394,16 +421,22 @@ onAuthStateChanged(auth, async (user) => {
     handleRow('rowD9', 'displayD9', 'priceD9', savedD9, totalD9);
     handleRow('rowD10', 'displayD10', 'priceD10', savedD10, totalD10);
     handleRow('rowD11', 'displayD11', 'priceD11', savedD11, totalD11);
+    handleRow('rowD12', 'displayD12', 'priceD12', savedD12, totalD12);
+    handleRow('rowD13', 'displayD13', 'priceD13', savedD13, totalD13);
+    handleRow('rowD14', 'displayD14', 'priceD14', savedD14, totalD14);
+
 
     const totalPriceEl = document.getElementById('totalPrice');
     if (totalPriceEl) {
-        totalPriceEl.textContent = (totalF1 + totalF2 + totalF3 + totalF3_2 + totalF4 + totalF5 + totalF6 + totalD1 + totalD2 + totalD3 + totalD4 + totalD5 + totalD6 +totalD7 + totalD8 + totalD9 + totalD10 + totalD11).toLocaleString();
+        totalPriceEl.textContent = (totalF1 + totalF2 + totalF3 + totalF3_2 + totalF4 + totalF5 + totalF6 
+                                    + totalD1 + totalD2 + totalD3 + totalD4 + totalD5 + totalD6 +totalD7 + totalD8 + totalD9 + totalD10 + totalD11 + totalD12 + totalD13 + totalD14).toLocaleString();
     }
 
      const mailBtn = document.getElementById('mailBtn');
     if (mailBtn) {
         mailBtn.addEventListener('click', async () => {
-            const allTotal = totalF1 + totalF2 + totalF3 + totalF3_2 + totalF4 + totalF5 + totalF6 + totalD1 + totalD2 + totalD3 + totalD4 + totalD5 + totalD6 + totalD7 + totalD8 + totalD9 + totalD10 + totalD11;
+            const allTotal = totalF1 + totalF2 + totalF3 + totalF3_2 + totalF4 + totalF5 + totalF6 
+                            + totalD1 + totalD2 + totalD3 + totalD4 + totalD5 + totalD6 + totalD7 + totalD8 + totalD9 + totalD10 + totalD11 +totalD12 +totalD13 +totalD14; 
 
             if (allTotal === 0) {
                 alert("商品が選択されていません。個数を入力してください。");
@@ -516,6 +549,9 @@ onAuthStateChanged(auth, async (user) => {
                 if (savedD9 > 0) itemDetails += `CCレモン${savedD9}個`;
                 if (savedD10 > 0) itemDetails += `アルプスの天然水${savedD10}個`;
                 if (savedD11 > 0) itemDetails += `京都サイダー${savedD11}個`;
+                if (savedD12 > 0) itemDetails += `伊右衛門 焙じ茶${savedD12}個`;
+                if (savedD13 > 0) itemDetails += `伊右衛門 緑茶${savedD13}個`;
+                if (savedD14 > 0) itemDetails += `レモンスカッシュ${savedD14}個`;
 
                 await addDoc(collection(db, "orders"), {
                     gakunen: gakunenInput,
@@ -545,7 +581,8 @@ onAuthStateChanged(auth, async (user) => {
     const clearBtn = document.getElementById('clearBtn');
     if (clearBtn) {
         clearBtn.addEventListener('click', () => {
-            const itemsToClear = ['inputF1', 'inputF2', 'inputF3', 'inputF3-2', 'inputF4', 'inputF5','inputF6', 'inputD1', 'inputD2', 'inputD3', 'inputD4', 'inputD5', 'inputD6', 'inputD7', 'inputD8', 'inputD9', 'inputD10', 'inputD11'];
+            const itemsToClear = ['inputF1', 'inputF2', 'inputF3', 'inputF3-2', 'inputF4', 'inputF5','inputF6'
+                                , 'inputD1', 'inputD2', 'inputD3', 'inputD4', 'inputD5', 'inputD6', 'inputD7', 'inputD8', 'inputD9', 'inputD10', 'inputD11', 'inputD12', 'inputD13', 'inputD14'];
             itemsToClear.forEach(key => localStorage.removeItem(key));
             location.reload();
         });
