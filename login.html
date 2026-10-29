@@ -28,7 +28,7 @@
     <script type="module">
 
      import{initializeApp}from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-     import{getAuth,signInWithEmailAndPassword}from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+     import{getAuth,signInWithEmailAndPassword, signOut}from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
      import{getAnalytics}from "https://www.gstatic.com/firebasejs/11.0.0/firebase-analytics.js";
     import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app-check.js";
 
@@ -49,10 +49,10 @@
 
     // self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
 
-    //  const appCheck = initializeAppCheck(app,{
-    //     provider:new ReCaptchaEnterpriseProvider('6LeYlAQuAAAAAPhXzx7WakjkiVwEkz6VnH207PjF'),
-    //     isTokenAutoRefreshEnabled:true
-    //  });
+     const appCheck = initializeAppCheck(app,{
+        provider:new ReCaptchaEnterpriseProvider('6LeYlAQuAAAAAPhXzx7WakjkiVwEkz6VnH207PjF'),
+        isTokenAutoRefreshEnabled:true
+     });
 
      
 
