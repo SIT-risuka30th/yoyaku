@@ -90,58 +90,59 @@
         appId: "1:934504714342:web:e160ada63fcfcd906c5da7"
     };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+    const contactForm = document.getElementById("contactForm") || document.querySelector("form");
+const sendButton = document.querySelector("button, input[type='button']");
 
-    document.getElementById('submitBtn').addEventListener('click', async () => {
-        const gakunen = document.getElementById('gakunenSelect').value;
-        const className = document.getElementById('classSelect').value;
-        const number = document.getElementById('numberInput').value.trim();
-        const nameInput = document.getElementById('userName').value.trim();
-        const contentInput = document.getElementById('toiawaseContent').value.trim();
+if (contactForm) {
+    contactForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        await executeSendEnquiry();
+    });
+} else if (sendButton) {
+    sendButton.addEventListener("click", async () => {
+        await executeSendEnquiry();
+    });
+}
 
-        if (!gakunen || !className || !number || !nameInput || !contentInput) {
-            alert("すべての項目を入力してください。");
-            return;
-        }
+async function executeSendEnquiry() {
+    // 💡 画面上の入力欄から値を取得（HTML構造に合わせてセレクトボックスやテキスト欄を自動判定）
+    const gakunenSelect = document.querySelector("select[name='gakunen']") || document.querySelectorAll("select")[0];
+    const classSelect = document.querySelector("select[name='class']") || document.querySelectorAll("select")[1];
+    const numberInput = document.querySelector("input[type='number']") || document.querySelectorAll("input")[0];
+    const nameInput = document.querySelector("input[name='username']") || document.querySelectorAll("input")[1] || document.querySelector("input[type='text']");
+    const contentTextarea = document.querySelector("textarea");
 
-      
-    if (contentInput === "ミス" || contentInput === "miss") { 
-    // 指定した言葉にぴったり一致したら、ページを強制移動させる
-    window.location.href = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"; 
-    return; // ここで処理を終了し、Firestoreへの送信は行わない
-    }
-
-    else if(contentInput === "dog" || contentInput === "犬"){
-        window.location.href = "Doge.png";
+    if (!contentTextarea || !contentTextarea.value.trim()) {
+        alert("お問い合わせ内容を入力してください。");
         return;
     }
 
-      const infoInput = `${gakunen}${className}${number}番`;
+    const gakunen = gakunenSelect ? gakunenSelect.value : "";
+    const className = classSelect ? classSelect.value : "";
+    const number = numberInput ? numberInput.value : "";
+    const name = nameInput ? nameInput.value : "不明";
+    const content = contentTextarea.value;
 
-        try {
-            // Firestoreの "enquiries" コレクションに問い合わせを保存
-            await addDoc(collection(db, "enquiries"), {
-                userKey: infoInput, // 合体した「3年5組41番」というデータがそのまま入ります
-                name: nameInput,
-                content: contentInput,
-                createdAt: serverTimestamp()
-            });
+    const userKey = `${gakunen}-${className}-${number}`;
 
-            alert("お問い合わせを送信しました！管理者が確認するまでお待ちください。");
-            
-            // 入力フォームをすべてリセット
-            document.getElementById('gakunenSelect').value = "";
-            document.getElementById('classSelect').value = "";
-            document.getElementById('numberInput').value = "";
-            document.getElementById('userName').value = "";
-            document.getElementById('toiawaseContent').value = "";
+    try {
+        // 🛡️ 管理者ダッシュボードがリアルタイム待機（監理）している Realtime Database の「enquiries」へ送信
+        const enquiriesRef = ref(rtdb, 'enquiries');
+        await push(enquiriesRef, {
+            userKey: userKey,
+            name: name,
+            content: content,
+            timestamp: Date.now()
+        });
 
-        } catch (error) {
-            console.error("問い合わせ送信エラー:", error);
-            alert("送信に失敗しました。");
-        }
-    });
+        alert("お問い合わせを送信しました！");
+        if (contactForm) contactForm.reset();
+        if (contentTextarea) contentTextarea.value = "";
+    } catch (error) {
+        console.error("問い合わせ送信エラー:", error);
+        alert("送信に失敗しました。接続状態を確認してください。");
+    }
+}
 </script>
 </body>
 </html>

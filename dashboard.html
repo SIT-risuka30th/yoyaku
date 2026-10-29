@@ -509,73 +509,58 @@ function startOrdersMonitoring() {
 
 // --- 📢 ④ お知らせデータのリアルタイム監視 ---
 function startNewsMonitoring() {
-    // 🛡️ Realtime Database（rtdb）の 'news' へ接続を修正
-    const newsRef = ref(rtdb, 'news');
+    const container = document.getElementById("newsTableBody"); // 📋 投稿済みのお知らせ一覧の tbody
+    if (!container) return;
 
-    onValue(newsRef, (snapshot) => {
-        const newsBody = document.getElementById("newsTableBody");
-        if (!newsBody) return;
-        
-        newsBody.textContent = ""; // 🛡️ innerHTMLを排除して安全にクリア
+    const newsQuery = query(collection(db, "news"), orderBy("date", "desc"));
 
-        if (!snapshot.exists()) {
+    onSnapshot(newsQuery, (querySnapshot) => {
+        container.textContent = ""; // 安全にクリア
+
+        if (querySnapshot.empty) {
             const tr = document.createElement("tr");
-            const td = document.createElement("td");
-            td.setAttribute("colspan", "3");
-            td.style.cssText = "padding: 20px; text-align: center; color: #999;";
-            td.textContent = "投稿されたお知らせはありません。";
-            tr.appendChild(td);
-            newsBody.appendChild(tr);
+            tr.innerHTML = `<td colspan="2" style="padding: 15px; text-align: center; color: #999;">投稿されたお知らせはありません。</td>`;
+            container.appendChild(tr);
             return;
         }
 
-        const data = snapshot.val();
-        const docIds = Object.keys(data).reverse(); // 新しい順に並び替え
+        querySnapshot.forEach((newsDoc) => {
+            const data = newsDoc.data();
+            const docId = newsDoc.id;
+            const body = data.body || "";
 
-        // 🛡️ XSS・属性インジェクションを完全防御（createElement 方式）
-        docIds.forEach((docId) => {
-            const news = data[docId];
             const tr = document.createElement("tr");
-            tr.style.cssText = "border-bottom: 1px solid #eee;";
+            tr.style.borderBottom = "1px solid #eee";
 
-            const tdDate = document.createElement("td");
-            tdDate.style.cssText = "padding: 12px 10px; color: #555; white-space: nowrap;";
-            
-            let dateStr = "---";
-            if (news.date) {
-                dateStr = new Date(news.date).toLocaleDateString('ja-JP', {
-                    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
-                });
-            }
-            tdDate.textContent = dateStr;
-
+            // 本文セル
             const tdBody = document.createElement("td");
-            tdBody.style.cssText = "padding: 12px 10px; color: #666; font-size: 14px; white-space: pre-wrap;";
-            tdBody.textContent = news.body || "";
+            tdBody.style.cssText = "padding: 12px 10px; color: #333; text-align: left; white-space: pre-wrap;";
+            tdBody.textContent = body;
 
+            // 操作（削除ボタン）セル
             const tdAction = document.createElement("td");
-            tdAction.style.cssText = "padding: 12px 10px;";
-            const deleteBtn = document.createElement("button");
-            deleteBtn.className = "btn-delete-news";
-            deleteBtn.setAttribute("data-id", docId); // 🛡️ 属性インジェクション防止
-            deleteBtn.style.cssText = "background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;";
-            deleteBtn.textContent = "削除";
-            tdAction.appendChild(deleteBtn);
+            tdAction.style.padding = "12px 10px";
 
-            tr.appendChild(tdDate);
+            const btnDelete = document.createElement("button");
+            btnDelete.className = "btn-delete-news";
+            btnDelete.setAttribute("data-id", docId);
+            btnDelete.style.cssText = "background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;";
+            btnDelete.textContent = "削除";
+
+            tdAction.appendChild(btnDelete);
             tr.appendChild(tdBody);
             tr.appendChild(tdAction);
-            newsBody.appendChild(tr);
+            container.appendChild(tr);
         });
 
-        // お知らせ削除ボタンイベント
-        newsBody.querySelectorAll('.btn-delete-news').forEach(button => {
+        // お知らせ削除ボタンのイベント登録
+        container.querySelectorAll('.btn-delete-news').forEach(button => {
             button.addEventListener('click', async (e) => {
                 const id = e.currentTarget.getAttribute('data-id');
-                if (id && confirm("このお知らせを完全に削除してもよろしいですか？")) {
+                if (id && confirm("このお知らせを削除しますか？")) {
                     try {
-                        const targetRef = ref(rtdb, `news/${id}`);
-                        await remove(targetRef);
+                        await deleteDoc(doc(db, "news", id));
+                        alert("お知らせを削除しました。");
                     } catch (error) {
                         console.error("お知らせ削除エラー:", error);
                         alert("削除に失敗しました。");
@@ -584,37 +569,55 @@ function startNewsMonitoring() {
             });
         });
     }, (error) => {
-        console.error("お知らせデータの取得エラー:", error);
+        console.error("管理者側お知らせ取得エラー:", error);
     });
 }
 
-// --- 📥 ⑤ お知らせの新規投稿フォームの処理 ---
+// --- 📥 ⑤ お知らせ投稿フォームの有効化（Firestore連動） ---
 function setupNewsForm() {
-    const newsForm = document.getElementById("newsForm");
-    if (newsForm) {
-        newsForm.onsubmit = null;
-        newsForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const newsInput = document.getElementById("newsBody");
-            const bodyText = newsInput.value;
+    // 💡 HTML側の「投稿する」ボタンに直結するイベントを設定します
+    // 画面構成に合わせ、フォームが存在しない場合は直接ボタンにイベントを付与できるようカバーしています
+    const submitBtn = document.querySelector("button, input[type='submit']"); // お知らせエリア直下のボタン
+    const contentInput = document.querySelector("textarea, input[type='text']"); // お知らせ入力欄
 
-            try {
-                // 🛡️ Firestoreではなく Realtime Database（rtdb）へプッシュ投稿する命令に変更
-                const newsListRef = ref(rtdb, 'news');
-                const newNewsRef = push(newsListRef); // 自動で新しいIDを発行
-                
-                await set(newNewsRef, {
-                    body: bodyText,
-                    date: serverTimestamp() // Realtime Database用のサーバータイムスタンプ
-                });
-                
-                alert("お知らせを投稿しました。");
-                newsInput.value = ""; // 入力欄をクリア
-            } catch (error) {
-                console.error("投稿エラー:", error);
-                alert("投稿に失敗しました。");
-            }
+    // より正確に指定するため、もし既存のHTMLに特定のIDがある場合は以下が優先されます
+    const exactForm = document.getElementById("newsForm");
+    
+    if (exactForm) {
+        exactForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const input = exactForm.querySelector("textarea") || exactForm.querySelector("input");
+            if (!input || !input.value.trim()) return;
+            await submitNews(input.value.trim(), exactForm);
         });
+    } else if (submitBtn && contentInput) {
+        // フォームタグがなく、ボタンとテキストエリアが独立しているHTML構成への対策
+        submitBtn.addEventListener("click", async () => {
+            if (!contentInput.value.trim()) {
+                alert("お知らせの内容を入力してください。");
+                return;
+            }
+            await submitNews(contentInput.value.trim(), contentInput);
+        });
+    }
+}
+
+// お知らせを送信する共通内部処理
+async function submitNews(content, inputElement) {
+    try {
+        await addDoc(collection(db, "news"), {
+            body: content,
+            date: serverTimestamp() // 生徒側が正しく並び替えるためのFirestoreタイムスタンプ
+        });
+        alert("新規お知らせを投稿しました！");
+        if (typeof inputElement.reset === "function") {
+            inputElement.reset();
+        } else {
+            inputElement.value = "";
+        }
+    } catch (error) {
+        console.error("お知らせ投稿エラー:", error);
+        alert("投稿に失敗しました。詳細ルールや接続を確認してください。");
     }
 }
 </script>

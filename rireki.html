@@ -58,129 +58,63 @@
         const auth = getAuth(app); 
         const rtdb = getDatabase(app); // 👈 db(Firestore) をやめて rtdb(Realtime Database) に変更します
 
-         onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                console.log("履歴ページ接続完了。UID:", user.uid);
-                
-                const container = document.getElementById("table-container");
-                if (!container) return;
+window.addEventListener('DOMContentLoaded', async () => {
+    const historyBody = document.getElementById("historyTableBody") || document.querySelector("tbody");
+    if (!historyBody) return;
 
-                // Realtime Database（rtdb）の 'orders' の場所を指定
-                const ordersRef = ref(rtdb, 'orders');
+    try {
+        // Firestore(db)の「orders」コレクションから、過去に削除された（isDeleted: true）データも含めてすべて読み込む
+        // または過去ログ専用の「history」コレクションがある場合はコレクション名を書き換えてください
+        const historyQuery = query(collection(db, "orders"), orderBy("createdAt", "desc"));
+        
+        onSnapshot(historyQuery, (querySnapshot) => {
+            historyBody.textContent = ""; // クリア
 
-                // リアルタイムに履歴の監視を開始
-                onValue(ordersRef, (snapshot) => {
-                    container.textContent = ""; // 🛡️ innerHTMLを使わず安全に画面をクリア
-
-                    // 注文データ自体が1件も存在しない場合
-                    if (!snapshot.exists()) {
-                        const noDataDiv = document.createElement("div");
-                        noDataDiv.className = "no-data";
-                        noDataDiv.textContent = "過去のご注文履歴はありません。";
-                        container.appendChild(noDataDiv);
-                        return;
-                    }
-
-                    const data = snapshot.val();
-                    
-                    // 🚨 【プライバシー保護・情報漏洩対策】
-                    // 届いたすべてのデータの中から、「今ログインしているこの生徒のUID」と一致する自分の注文だけを安全に抽出
-                    const myOrderKeys = Object.keys(data).reverse();
-
-                    // 自分の注文データが1件もない場合
-                    if (myOrderKeys.length === 0) {
-                        const noDataDiv = document.createElement("div");
-                        noDataDiv.className = "no-data";
-                        noDataDiv.textContent = "過去のご注文履歴はありません。";
-                        container.appendChild(noDataDiv);
-                        return;
-                    }
-
-                    // 4. 🔒 【セキュリティ（XSS・インジェクション）対策の核心】
-                    // innerHTML による文字列連結を完全に排除し、DOM API（createElement）だけで組み立てます
-                    const table = document.createElement("table");
-                    const thead = document.createElement("thead");
-                    const tbody = document.createElement("tbody");
-
-                    // テーブルヘッダーの生成
-                    const headerRow = document.createElement("tr");
-                    ["注文日時", "お名前", "注文内容", "ステータス"].forEach(text => {
-                        const th = document.createElement("th");
-                        th.textContent = text;
-                        headerRow.appendChild(th);
-                    });
-                    thead.appendChild(headerRow);
-                    table.appendChild(thead);
-
-                    // 抽出した自分のデータだけを1行ずつ安全に追加
-                    myOrderKeys.forEach((docId) => {
-                        const order = data[docId];
-                        if (order.isDeleted === true) return; // 管理画面で削除（非表示）にされた注文は除外
-
-                        const tr = document.createElement("tr");
-
-                        // ① 注文日時の部品生成
-                        const tdDate = document.createElement("td");
-                        let dateStr = "---";
-                        if (order.orderDate) {
-                            dateStr = new Date(order.orderDate).toLocaleString('ja-JP', {
-                                year: 'numeric', month: '2-digit', day: '2-digit',
-                                hour: '2-digit', minute: '2-digit'
-                            });
-                        } else if (order.createdAt) {
-                            dateStr = new Date(order.createdAt).toLocaleString('ja-JP');
-                        }
-                        tdDate.textContent = dateStr; // ⭕ textContent で安全に挿入
-
-                        // ② お名前の部品生成
-                        const tdName = document.createElement("td");
-                        const strongName = document.createElement("strong");
-                        strongName.textContent = order.name || "未入力"; // ⭕ 安全に文字として挿入
-                        tdName.appendChild(strongName);
-
-                        // ③ 注文内容の部品生成
-                        const tdItems = document.createElement("td");
-                        tdItems.style.cssText = "font-size: 14px; max-width: 300px; word-wrap: break-word;";
-                        tdItems.textContent = order.items || "なし"; // ⭕ 生徒の自由入力を100%安全に文字化してハッキングを無効化
-
-                        // ④ ステータスの部品生成
-                        const tdStatus = document.createElement("td");
-                        let statusText = "⏳ 受付中";
-                        if (order.status === "completed") statusText = "✅ 渡済";
-                        tdStatus.textContent = statusText;
-
-                        // すべてを行に合体
-                        tr.appendChild(tdDate);
-                        tr.appendChild(tdName);
-                        tr.appendChild(tdItems);
-                        tr.appendChild(tdStatus);
-                        tbody.appendChild(tr);
-                    });
-
-                    table.appendChild(tbody);
-                    container.appendChild(table); // 最後に安全に組み立てた表を一括反映
-
-                }, (error) => {
-                    console.error("購入履歴の読み込みエラー:", error);
-                    if (container) {
-                        container.textContent = "";
-                        const errorDiv = document.createElement("div");
-                        errorDiv.className = "no-data";
-                        errorDiv.style.color = "red";
-                        errorDiv.textContent = "履歴の読み込みに失敗しました。";
-                        container.appendChild(errorDiv);
-                    }
-                });
-
-            } else {
-                // ログインしていない場合は裏側で自動的に匿名ログインを実行
-                try {
-                    await signInAnonymously(auth);
-                } catch (error) {
-                    console.error("匿名ログイン失敗:", error);
-                }
+            if (querySnapshot.empty) {
+                historyBody.innerHTML = `<tr><td colspan="6" style="padding: 20px; text-align: center; color: #999;">購入履歴データはありません。</td></tr>`;
+                return;
             }
+
+            querySnapshot.forEach((doc) => {
+                const data = doc.data();
+                const gakunen = data.gakunen || "";
+                const className = data.className || "";
+                const number = data.number || "-";
+                const name = data.name || "不明";
+                const items = data.items || "なし";
+                const totalPrice = data.totalPrice ? data.totalPrice.toLocaleString() + "円" : "0円";
+                
+                let dateStr = "---";
+                if (data.createdAt && typeof data.createdAt.toDate === "function") {
+                    dateStr = data.createdAt.toDate().toLocaleDateString('ja-JP', {
+                        month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+                    });
+                }
+
+                const tr = document.createElement("tr");
+                tr.style.borderBottom = "1px solid #eee";
+                // 削除済みの履歴は少し薄く表示して区別する親切設計
+                if (data.isDeleted === true) {
+                    tr.style.opacity = "0.6";
+                    tr.style.backgroundColor = "#fdf2f2";
+                }
+
+                tr.innerHTML = `
+                    <td style="padding: 12px 10px; color: #555;">${dateStr}</td>
+                    <td style="padding: 12px 10px; color: #555;">${gakunen}年${className}組</td>
+                    <td style="padding: 12px 10px; color: #555;">${number}番</td>
+                    <td style="padding: 12px 10px; font-weight: bold; color: #333;">${name}</td>
+                    <td style="padding: 12px 10px; color: #666; font-size: 14px;">${items}</td>
+                    <td style="padding: 12px 10px; font-weight: bold; color: #e67e22;">${totalPrice}</td>
+                `;
+                historyBody.appendChild(tr);
+            });
         });
+    } catch (error) {
+        console.error("履歴データの取得に失敗しました:", error);
+        historyBody.innerHTML = `<tr><td colspan="6" style="padding: 20px; text-align: center; color: red;">データの読込権限がありません。</td></tr>`;
+    }
+});
          </script>
 </body>
 </html>
