@@ -103,6 +103,7 @@
 
   
   <script type="module">
+    window.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
     self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
     import { getFirestore, doc, deleteDoc, updateDoc, onSnapshot, collection, query, addDoc, orderBy, serverTimestamp, where, getDocs} from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
@@ -112,6 +113,7 @@
    const firebaseConfig = {
             apiKey: "AIzaSyBtLHgM6RzCU_grTElSqLCmsaRu4rVe-4o", 
             authDomain: "://firebaseapp.com", 
+            databaseURL:"koubai-7b6a6-default-rtdb.firebaseio.com",
             projectId: "koubai-7b6a6", 
             storageBucket: "koubai-7b6a6.firebasetorage.app", 
             messagingSenderId: "934504714342", 
@@ -119,276 +121,318 @@
         };
 
  // 初期化
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const rtdb = getDatabase(app);
-const auth = getAuth(app); // ⭕ authオブジェクトの定義
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);     // 📦 注文・問い合わせ・お知らせは Firestore(db)
+        const rtdb = getDatabase(app);   // 🌐 オンラインユーザーは Realtime Database(rtdb)
+        const auth = getAuth(app);
 
 let audioCtx = null;
 
-// 画面が最初にクリックされたらAudioContextを生成・有効化する
-window.addEventListener('click', () => {
-    if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    } else if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-    }
-}, { once: true });
-
-if (Notification.permission === "default") {
-    Notification.requestPermission().then(permission => {
-        if (permission === "granted") {
-            console.log("通知が許可されました！");
-        }
-    });
-}
-
-// ==========================================
-// 🔒 ログイン状態を監視し、確認後に全機能を開始する
-// ==========================================
-onAuthStateChanged(auth, async(user) => {
-    if (user) {
-        console.log("一時的にチェックをスキップして、データ読み込みを開始します。");
-
-        // 🛡️ あなたのコードに定義されている【本物】の関数をすべてここで一斉起動します
-        startOnlineUsersCounter();   // 🌐 同時滞在者数のカウント開始
-        startVisitorCounter();       // 📊 アクセスカウンターの監視開始
-        startOrdersMonitoring();     // 📦 ② 注文データのリアルタイム監視開始
-        startEnquiriesMonitoring();  // ✉️ ③ 問い合わせデータのリアルタイム監視開始
-        startNewsMonitoring();       // 📢 ④ お知らせデータのリアルタイム監視開始
-        setupNewsForm();             // 📥 ⑤ お知らせ投稿フォームのボタン処理を有効化
-
-        console.log("すべてのデータ通信（リアルタイム監視）の命令を送信しました。");
-
-    } else {
-        window.location.href = "login.html";
-    }
-});
-
-// --- 🌐 同時滞在者数カウント ---
-function startOnlineUsersCounter() {
-    const onlineUsersRef = ref(rtdb, 'online_users');
-    onValue(onlineUsersRef, (snapshot) => {
-        const currentOnlineEl = document.getElementById("currentOnlineCount");
-        if (!currentOnlineEl) return;
-
-        if (snapshot.exists()) {
-            const onlineCount = Object.keys(snapshot.val()).length;
-            currentOnlineEl.textContent = onlineCount;
-        } else {
-            currentOnlineEl.textContent = "0";
-        }
-    }, (error) => {
-        console.error("同時滞在者数カウントエラー:", error);
-    });
-}
-
-// --- 📊 ① アクセスカウンターのリアルタイム監視 ---
-function startVisitorCounter() {
-    const todayStr = new Date().toISOString().split('T')[0];
-    onSnapshot(doc(db, "analytics", todayStr), (docSnap) => {
-        const viewCountEl = document.getElementById("viewCount");
-        if (!viewCountEl) return;
-
-        if (docSnap.exists() && docSnap.data().views !== undefined) {
-            viewCountEl.textContent = docSnap.data().views;
-        } else {
-            viewCountEl.textContent = "0";
-        }
-    }, (error) => {
-        console.error("今日の訪問者数カウンターエラー:", error);
-    });
-}
-
-// --- 📦 ② 注文データのリアルタイム監視 ---
-function startOrdersMonitoring() {
-    // 🛡️ Firestore用ではなく、Realtime Database（rtdb）の 'orders' を見に行くように変更
-    const ordersRef = ref(rtdb, 'orders'); 
-
-    let isInitialLoad = true;
-
-    // 🛡️ onSnapshot ではなく Realtime Database 用の onValue でリアルタイム監視します
-    onValue(ordersRef, (snapshot) => {
-        const tableBody = document.getElementById("orderTableBody");
-        if (!tableBody) return;
-        
-        tableBody.innerHTML = "";
-
-        // 📝 注文データが1件もない場合の処理
-        if (!snapshot.exists()) {
-            tableBody.innerHTML = `<tr><td colspan="6" style="padding: 20px; text-align: center; color: #999;">まだ注文はありません。</td></tr>`;
-            isInitialLoad = false; 
-            return;
-        }
-
-        const orderRows = [];
-        const data = snapshot.val();
-        let newOrderName = "";
-
-        // 🔔 新しい注文の通知チェック処理
-        if (!isInitialLoad) {
-            // 最も新しい（最後に追加された）注文を確認
-            const keys = Object.keys(data);
-            const latestKey = keys[keys.length - 1];
-            if (data[latestKey] && !data[latestKey].isDeleted) {
-                newOrderName = data[latestKey].name || "不明";
+ window.addEventListener('click', () => {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            } else if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
             }
-        }
+        }, { once: true });
 
-        // 🔔 新着通知（ブラウザ通知と音）
-        if (newOrderName) {
-            if (Notification.permission === "granted") {
-                new Notification("🔔 新しい予約が届きました！", {
-                    body: `${newOrderName} 様からの注文です。`,
-                    icon: "https://flaticon.com" 
-                });
-            }
-        
-            if (audioCtx) {
-                if (audioCtx.state === 'suspended') {
-                    audioCtx.resume();
-                }
-                try {
-                    const playTone = (startTime, duration, frequency) => {
-                        const oscillator = audioCtx.createOscillator();
-                        const gainNode = audioCtx.createGain();
-                        oscillator.connect(gainNode);
-                        gainNode.connect(audioCtx.destination);
-                        oscillator.type = 'sine';
-                        oscillator.frequency.setValueAtTime(frequency, startTime);
-                        gainNode.gain.setValueAtTime(0, startTime);
-                        gainNode.gain.linearRampToValueAtTime(0.15, startTime + 0.02); 
-                        gainNode.gain.setValueAtTime(0.15, startTime + duration - 0.02);
-                        gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
-                        oscillator.start(startTime);
-                        oscillator.stop(startTime + duration);
-                    };
-                    const now = audioCtx.currentTime;
-                    playTone(now, 0.08, 987.77);       
-                    playTone(now + 0.1, 0.08, 987.77);
-                    playTone(now + 0.2, 0.08, 1318.51); 
-                    playTone(now + 0.45, 0.08, 987.77);
-                    playTone(now + 0.55, 0.08, 987.77);
-                    playTone(now + 0.65, 0.08, 1318.51);
-                } catch (e) {
-                    console.error("オーディオ再生エラー:", e);
-                }
-            }
-        }
-
-        // 📦 データを1件ずつ処理してテーブルの行を組み立て（Realtime Databaseのループ方法）
-        // 💡 注文を新しい順（下から上）に並べるため、配列を逆順にします
-        const docIds = Object.keys(data).reverse();
-
-        docIds.forEach((docId) => {
-            const order = data[docId];
-            if (order.isDeleted === true) return; // 削除済みはスキップ
-
-            const gakunen = order.gakunen || "";
-            const className = order.className || "";
-            const number = order.number || "-";
-            const name = order.name || "不明";
-            const items = order.items || "なし";
-            const totalPrice = order.totalPrice ? order.totalPrice.toLocaleString() + "円" : "0円";
-            const userKey = order.userId || `${gakunen}-${className}-${number}`;
-          
-            const rowHTML = `
-                <tr style="border-bottom: 1px solid #eee;">
-                    <td style="padding: 12px 10px; color: #555;">${gakunen} ${className}</td>
-                    <td style="padding: 12px 10px; color: #555;">${number} 番</td>
-                    <td style="padding: 12px 10px; font-weight: bold; color: #333;">${name}</td>
-                    <td style="padding: 12px 10px; color: #666; font-size: 14px; max-width: 400px; word-wrap: break-word;">${items}</td>
-                    <td style="padding: 12px 10px; font-weight: bold; color: #e67e22;">${totalPrice}</td>
-                    <td style="padding: 12px 10px;">
-                        <button class="btn-reset-pin" data-userkey="${userKey}" data-name="${name}" style="background: #f1c40f; color: #333; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-right: 5px;">🔑 リセット</button>
-                        <button class="btn-delete" data-id="${docId}" style="background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">削除</button>
-                    </td>
-                </tr>
-            `;
-            orderRows.push(rowHTML);
-        });
-
-        tableBody.innerHTML = orderRows.length > 0 ? orderRows.join("") : `<tr><td colspan="6" style="padding: 20px; text-align: center; color: #999;">まだ注文はありません。</td></tr>`;
-
-        // 🗑️ 削除ボタンイベントの処理
-        tableBody.querySelectorAll('.btn-delete').forEach(button => {
-            button.addEventListener('click', async (e) => {
-                const id = e.currentTarget.getAttribute('data-id'); // ✅ e.target から e.currentTarget に修正してバグ防止
-                if (id && confirm("この注文データを非表示にしてもよろしいですか？")) {
-                    try {
-                        // 🛡️ FirestoreではなくRealtime Databaseのデータを更新する命令に変更
-                        const targetRef = ref(rtdb, `orders/${id}`);
-                        await update(targetRef, { isDeleted: true });
-                        const row = e.currentTarget.closest('tr');
-                        if (row) row.remove();
-                    } catch (error) {
-                        console.error("非表示エラー:", error);
-                        alert("非表示処理に失敗しました。");
-                    }
+        if (Notification.permission === "default") {
+            Notification.requestPermission().then(permission => {
+                if (permission === "granted") {
+                    console.log("通知が許可されました！");
                 }
             });
+        }
+
+        // ==========================================
+        // 🔒 ログイン状態を監視し、確認後に全機能を開始する
+        // ==========================================
+        onAuthStateChanged(auth, async(user) => {
+            if (user) {
+                console.log("一時的にチェックをスキップして、データ読み込みを開始します。");
+
+                // 🛡️ 本物の関数をすべてここで一斉起動します
+                startOnlineUsersCounter();   // 🌐 同時滞在者数のカウント開始（rtdb用）
+                startVisitorCounter();       // 📊 アクセスカウンターの監視開始（db用）
+                startOrdersMonitoring();     // 📦 ② 注文データのリアルタイム監視開始（db用）
+                startEnquiriesMonitoring();  // ✉️ ③ 問い合わせデータのリアルタイム監視開始（db用）
+                startNewsMonitoring();       // 📢 ④ お知らせデータのリアルタイム監視開始（db用）
+                setupNewsForm();             // 📥 ⑤ お知らせ投稿フォームのボタン処理を有効化
+
+                console.log("すべてのデータ通信（リアルタイム監視）の命令を送信しました。");
+            } else {
+                window.location.href = "login.html";
+            }
         });
 
-        // 🔑 リセットボタンイベントの処理
-        tableBody.querySelectorAll('.btn-reset-pin').forEach(button => {
-            button.addEventListener('click', async (e) => {
-                const targetKey = e.currentTarget.getAttribute('data-userkey');
-                const targetName = e.currentTarget.getAttribute('data-name');
+        // --- 🌐 同時滞在者数カウント（Realtime Databaseを使用：正常動作） ---
+        function startOnlineUsersCounter() {
+            const onlineUsersRef = ref(rtdb, 'online_users');
+            onValue(onlineUsersRef, (snapshot) => {
+                const currentOnlineEl = document.getElementById("currentOnlineCount");
+                if (!currentOnlineEl) return;
+
+                if (snapshot.exists()) {
+                    const onlineCount = Object.keys(snapshot.val()).length;
+                    currentOnlineEl.textContent = onlineCount;
+                } else {
+                    currentOnlineEl.textContent = "0";
+                }
+            }, (error) => {
+                console.error("同時滞在者数カウントエラー:", error);
+            });
+        }
+
+        // --- 📊 ① アクセスカウンターのリアルタイム監視（Firestoreを使用） ---
+        function startVisitorCounter() {
+            const todayStr = new Date().toISOString().split('T')[0];
+            onSnapshot(doc(db, "analytics", todayStr), (docSnap) => {
+                const viewCountEl = document.getElementById("viewCount");
+                if (!viewCountEl) return;
+
+                if (docSnap.exists() && docSnap.data().views !== undefined) {
+                    viewCountEl.textContent = docSnap.data().views;
+                } else {
+                    viewCountEl.textContent = "0";
+                }
+            }, (error) => {
+                console.error("今日の訪問者数カウンターエラー:", error);
+            });
+        }
+
+        // --- 📦 ② 注文データのリアルタイム監視（Firestoreを使用：XSS防御版） ---
+        function startOrdersMonitoring() {
+            const ordersQuery = query(
+                collection(db, "orders"), 
+                where("isDeleted", "!=", true),
+                orderBy("isDeleted", "asc"), 
+                orderBy("createdAt", "desc")
+            );
+
+            let isInitialLoad = true;
+
+            onSnapshot(ordersQuery, (querySnapshot) => {
+                const tableBody = document.getElementById("orderTableBody");
+                if (!tableBody) return;
                 
-                if (!targetKey || targetKey === "--") {
-                    alert("生徒の情報が不完全なため、暗証番号を特定してリセットできません。");
+                tableBody.textContent = ""; // 🛡️ 安全なクリア
+
+                if (querySnapshot.empty) {
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `<td colspan="6" style="padding: 20px; text-align: center; color: #999;">まだ注文はありません。</td></tr>`;
+                    tableBody.appendChild(tr);
+                    isInitialLoad = false; 
                     return;
                 }
-                if (confirm(`【確認】\n${targetName} さん (${targetKey}) の暗証番号をリセットしますか？\n\nリセットすると、この生徒は次回注文時に新しい暗証番号を設定し直すことができるようになります。`)) {
-                    try {
-                        // 🛡️ Realtime Database（rtdb）のユーザーデータを削除する命令に変更
-                        const userRef = ref(rtdb, `users/${targetKey}`);
-                        await remove(userRef);
-                        alert(`${targetName} さんの暗証番号をリセットしました。`);
-                    } catch (error) {
-                        console.error("暗証番号リセットエラー:", error);
-                        alert("暗証番号のリセットに失敗しました。");
+
+                let newOrderName = ""; 
+
+                querySnapshot.docChanges().forEach((change) => {
+                    if (change.type === "added" && !isInitialLoad) {
+                        const data = change.doc.data();
+                        newOrderName = data.name || "不明";
+                    }
+                });
+
+                // 通知音とブラウザ通知
+                if (newOrderName) {
+                    if (Notification.permission === "granted") {
+                        new Notification("🔔 新しい予約が届きました！", {
+                            body: `${newOrderName} 様からの注文です。`,
+                            icon: "https://flaticon.com" 
+                        });
+                    }
+                
+                    if (audioCtx) {
+                        if (audioCtx.state === 'suspended') {
+                            audioCtx.resume();
+                        }
+                        try {
+                            const playTone = (startTime, duration, frequency) => {
+                                const oscillator = audioCtx.createOscillator();
+                                const gainNode = audioCtx.createGain();
+                                oscillator.connect(gainNode);
+                                gainNode.connect(audioCtx.destination);
+                                oscillator.type = 'sine';
+                                oscillator.frequency.setValueAtTime(frequency, startTime);
+                                gainNode.gain.setValueAtTime(0, startTime);
+                                gainNode.gain.linearRampToValueAtTime(0.15, startTime + 0.02); 
+                                gainNode.gain.setValueAtTime(0.15, startTime + duration - 0.02);
+                                gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
+                                oscillator.start(startTime);
+                                oscillator.stop(startTime + duration);
+                            };
+                            const now = audioCtx.currentTime;
+                            playTone(now, 0.08, 987.77);       
+                            playTone(now + 0.1, 0.08, 987.77);
+                            playTone(now + 0.2, 0.08, 1318.51); 
+                            playTone(now + 0.45, 0.08, 987.77);
+                            playTone(now + 0.55, 0.08, 987.77);
+                            playTone(now + 0.65, 0.08, 1318.51);
+                        } catch (e) {
+                            console.error("オーディオ再生エラー:", e);
+                        }
                     }
                 }
+
+                // 🛡️ 【XSS完全防御】createElement と textContent で行を1本ずつ安全に生成
+                querySnapshot.forEach((orderDoc) => {
+                    const data = orderDoc.data();
+                    const docId = orderDoc.id; 
+                    
+                    const gakunen = data.gakunen || "";
+                    const className = data.className || "";
+                    const number = data.number || "-";
+                    const name = data.name || "不明";
+                    const items = data.items || "なし";
+                    const totalPrice = data.totalPrice ? data.totalPrice.toLocaleString() + "円" : "0円";
+                    const userKey = data.userId || `${gakunen}-${className}-${number}`;
+                  
+                      const tr = document.createElement("tr");
+                    tr.style.borderBottom = "1px solid #eee";
+
+                    const tdClass = document.createElement("td");
+                    tdClass.style.cssText = "padding: 12px 10px; color: #555;";
+                    tdClass.textContent = `${gakunen} ${className}`;
+
+                    const tdNum = document.createElement("td");
+                    tdNum.style.cssText = "padding: 12px 10px; color: #555;";
+                    tdNum.textContent = `${number} 番`;
+
+                    const tdName = document.createElement("td");
+                    tdName.style.cssText = "padding: 12px 10px; font-weight: bold; color: #333;";
+                    tdName.textContent = name;
+
+                    const tdItems = document.createElement("td");
+                    tdItems.style.cssText = "padding: 12px 10px; color: #666; font-size: 14px; max-width: 400px; word-wrap: break-word;";
+                    tdItems.textContent = items; // ⭕ 生徒の自由入力を安全に文字化
+
+                    const tdPrice = document.createElement("td");
+                    tdPrice.style.cssText = "padding: 12px 10px; font-weight: bold; color: #e67e22;";
+                    tdPrice.textContent = totalPrice;
+
+                    // 🛠️ アクションセル内に2つのボタンを安全に生成
+                    const tdAction = document.createElement("td");
+                    tdAction.style.padding = "12px 10px";
+
+                    // 1. 注文の削除ボタン
+                    const btnDelete = document.createElement("button");
+                    btnDelete.className = "btn-delete";
+                    btnDelete.setAttribute("data-id", docId);
+                    btnDelete.style.cssText = "background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; margin-right: 5px;";
+                    btnDelete.textContent = "削除";
+                    tdAction.appendChild(btnDelete);
+
+                    // 2. 暗証番号のリセットボタン
+                    const btnResetPin = document.createElement("button");
+                    btnResetPin.className = "btn-reset-pin";
+                    btnResetPin.setAttribute("data-userkey", userKey);
+                    btnResetPin.setAttribute("data-name", name);
+                    btnResetPin.style.cssText = "background: #f39c12; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;";
+                    btnResetPin.textContent = "鍵リセット";
+                    tdAction.appendChild(btnResetPin);
+
+                    // 全セルを tr に追加し、tr をテーブル本体に追加
+                    tr.appendChild(tdClass);
+                    tr.appendChild(tdNum);
+                    tr.appendChild(tdName);
+                    tr.appendChild(tdItems);
+                    tr.appendChild(tdPrice);
+                    tr.appendChild(tdAction);
+                    tableBody.appendChild(tr);
+                });
+
+
+                tableBody.querySelectorAll('.btn-delete').forEach(button => {
+                    button.addEventListener('click', async (e) => {
+                        const id = e.currentTarget.getAttribute('data-id');
+                        if (id && confirm("この注文を削除しますか？")) {
+                            try {
+                                await updateDoc(doc(db, "orders", id), { isDeleted: true });
+                            } catch (error) {
+                                console.error("注文削除エラー:", error);
+                                alert("削除に失敗しました。");
+                            }
+                        }
+                    });
+                });
+
+                // 🔑 暗証番号リセットボタンのイベントリスナー（rtdb連動）
+                tableBody.querySelectorAll('.btn-reset-pin').forEach(button => {
+                    button.addEventListener('click', async (e) => {
+                        const targetKey = e.currentTarget.getAttribute('data-userkey');
+                        const targetName = e.currentTarget.getAttribute('data-name');
+                        
+                        if (!targetKey || targetKey.includes("--")) {
+                            alert("生徒の情報が不完全なため、暗証番号を特定してリセットできません。");
+                            return;
+                        }
+                        if (confirm(`【確認】\n${targetName} さん (${targetKey}) の暗証番号をリセットしますか？\n\nリセットすると、この生徒は次回注文時に新しい暗証番号を設定し直すことができるようになります。`)) {
+                            try {
+                                const userRef = ref(rtdb, `users/${targetKey}`);
+                                await remove(userRef);
+                                alert(`${targetName} さんの暗証番号をリセットしました。`);
+                            } catch (error) {
+                                console.error("暗証番号リセットエラー:", error);
+                                alert("暗証番号のリセットに失敗しました。");
+                            }
+                        }
+                    });
+                });
+
+             isInitialLoad = false; 
+            }, (error) => {
+                console.error("注文データの取得エラー:", error);
+                const tableBody = document.getElementById("orderTableBody");
+                if (tableBody) {
+                    tableBody.innerHTML = '<tr><td colspan="6" style="padding: 20px; text-align: center; color: red;">データの取得に失敗しました。</td></tr>';
+                }
             });
-        });
-
-        isInitialLoad = false; 
-    }, (error) => {
-        console.error("注文データの取得エラー:", error);
-        const tableBody = document.getElementById("orderTableBody");
-        if (tableBody) {
-            tableBody.innerHTML = `<tr><td colspan="6" style="padding: 20px; text-align: center; color: red;">データの取得に失敗しました。</td></tr>`;
         }
-    });
-}
 
+    let prevEnquiryKeys = [];
 
 // --- ✉️ ③ 問い合わせデータのリアルタイム監視 ---
-function startEnquiriesMonitoring() {
-    const enquiriesQuery = query(collection(db, "enquiries"));
+    function startEnquiriesMonitoring() {
+    const enquiriesRef = ref(rtdb, 'enquiries');
     let isInitialEnquiryLoad = true;
 
-    onSnapshot(enquiriesQuery, (querySnapshot) => {
+    onValue(enquiriesRef, (snapshot) => {
         const enquiryBody = document.getElementById("enquiryTableBody");
         if (!enquiryBody) return;
         
-        enquiryBody.innerHTML = "";
+        enquiryBody.textContent = "";
 
-        if (querySnapshot.empty) {
-            enquiryBody.innerHTML = `<tr><td colspan="4" style="padding: 20px; text-align: center; color: #999;">問い合わせはありません。</td></tr>`;
+        if (!snapshot.exists()) {
+            const tr = document.createElement("tr");
+            const td = document.createElement("td");
+            td.setAttribute("colspan", "4");
+            td.style.cssText = "padding: 20px; text-align: center; color: #999;";
+            td.textContent = "問い合わせはありません。";
+            tr.appendChild(td);
+            enquiryBody.appendChild(tr);
+            prevEnquiryKeys = [];
             isInitialEnquiryLoad = false;
             return;
         }
 
-        const enquiryRows = [];
+        const data = snapshot.val();
+        const currentKeys = Object.keys(data);
+        const docIds = [...currentKeys].reverse(); // 新しい順に並び替え
         let newEnquiryName = "";
 
-        querySnapshot.docChanges().forEach((change) => {
-            if (change.type === "added" && !isInitialEnquiryLoad) {
-                newEnquiryName = change.doc.data().name || "不明";
+        // 新着問い合わせの通知チェック
+        if (!isInitialEnquiryLoad) {
+            const newKeys = currentKeys.filter(key => !prevEnquiryKeys.includes(key));
+            if (newKeys.length > 0) {
+                const latestNewKey = newKeys[newKeys.length - 1];
+                if (data[latestNewKey]) {
+                    newEnquiryName = data[latestNewKey].name || "不明";
+                }
             }
-        });
+        }
+
+        prevEnquiryKeys = currentKeys;
 
         if (newEnquiryName && Notification.permission === "granted") {
             new Notification("✉️ 新しいお問い合わせが届きました！", {
@@ -396,35 +440,49 @@ function startEnquiriesMonitoring() {
             });
         }
 
-        querySnapshot.forEach((enquiryDoc) => {
-            const data = enquiryDoc.data();
-            const docId = enquiryDoc.id;
-            const userKey = data.userKey || "";
-            const name = data.name || "不明";
-            const content = data.content || "なし";
+        // 🛡️ XSS・属性インジェクションを完全防御（createElement 方式）
+        docIds.forEach((docId) => {
+            const enquiry = data[docId];
+            const tr = document.createElement("tr");
+            tr.style.cssText = "border-bottom: 1px solid #eee;";
 
-            const rowHTML = `
-                <tr style="border-bottom: 1px solid #eee;">
-                    <td style="padding: 12px 10px; color: #555;">${userKey}</td>
-                    <td style="padding: 12px 10px; font-weight: bold; color: #333;">${name}</td>
-                    <td style="padding: 12px 10px; color: #666; font-size: 14px; white-space: pre-wrap;">${content}</td>
-                    <td style="padding: 12px 10px;">
-                        <button class="btn-delete-enquiry" data-id="${docId}" style="background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">対応済(削除)</button>
-                    </td>
-                </tr>
-            `;
-            enquiryRows.push(rowHTML);
+            const tdUserKey = document.createElement("td");
+            tdUserKey.style.cssText = "padding: 12px 10px; color: #555;";
+            tdUserKey.textContent = enquiry.userKey || "";
+
+            const tdName = document.createElement("td");
+            tdName.style.cssText = "padding: 12px 10px; font-weight: bold; color: #333;";
+            tdName.textContent = enquiry.name || "不明";
+
+            const tdContent = document.createElement("td");
+            tdContent.style.cssText = "padding: 12px 10px; color: #666; font-size: 14px; white-space: pre-wrap;";
+            tdContent.textContent = enquiry.content || "なし";
+
+            const tdAction = document.createElement("td");
+            tdAction.style.cssText = "padding: 12px 10px;";
+
+            const deleteBtn = document.createElement("button");
+            deleteBtn.className = "btn-delete-enquiry";
+            deleteBtn.setAttribute("data-id", docId); // 🛡️ 属性インジェクション防止
+            deleteBtn.style.cssText = "background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;";
+            deleteBtn.textContent = "対応済(削除)";
+            tdAction.appendChild(deleteBtn);
+
+            tr.appendChild(tdUserKey);
+            tr.appendChild(tdName);
+            tr.appendChild(tdContent);
+            tr.appendChild(tdAction);
+            enquiryBody.appendChild(tr);
         });
 
-        enquiryRows.reverse();
-        enquiryBody.innerHTML = enquiryRows.join("");
-
+        // 対応済（削除）ボタンイベント
         enquiryBody.querySelectorAll('.btn-delete-enquiry').forEach(button => {
             button.addEventListener('click', async (e) => {
-                const id = e.target.getAttribute('data-id');
+                const id = e.currentTarget.getAttribute('data-id');
                 if (id && confirm("この問い合わせを対応済みとして削除しますか？")) {
                     try {
-                        await deleteDoc(doc(db, "enquiries", id));
+                        const targetRef = ref(rtdb, `enquiries/${id}`);
+                        await remove(targetRef);
                     } catch (error) {
                         console.error("問い合わせ削除エラー:", error);
                         alert("削除に失敗しました。");
@@ -441,50 +499,73 @@ function startEnquiriesMonitoring() {
 
 // --- 📢 ④ お知らせデータのリアルタイム監視 ---
 function startNewsMonitoring() {
-    const newsQuery = query(collection(db, "news"), orderBy("date", "desc"));
+    // 🛡️ Realtime Database（rtdb）の 'news' へ接続を修正
+    const newsRef = ref(rtdb, 'news');
 
-    onSnapshot(newsQuery, (querySnapshot) => {
+    onValue(newsRef, (snapshot) => {
         const newsBody = document.getElementById("newsTableBody");
         if (!newsBody) return;
         
-        newsBody.innerHTML = "";
+        newsBody.textContent = ""; // 🛡️ innerHTMLを排除して安全にクリア
 
-        if (querySnapshot.empty) {
-            newsBody.innerHTML = `<tr><td colspan="4" style="padding: 20px; text-align: center; color: #999;">投稿されたお知らせはありません。</td></tr>`;
+        if (!snapshot.exists()) {
+            const tr = document.createElement("tr");
+            const td = document.createElement("td");
+            td.setAttribute("colspan", "3");
+            td.style.cssText = "padding: 20px; text-align: center; color: #999;";
+            td.textContent = "投稿されたお知らせはありません。";
+            tr.appendChild(td);
+            newsBody.appendChild(tr);
             return;
         }
 
-        const newsRows = [];
+        const data = snapshot.val();
+        const docIds = Object.keys(data).reverse(); // 新しい順に並び替え
 
-        querySnapshot.forEach((newsDoc) => {
-            const data = newsDoc.data();
-            const docId = newsDoc.id;
-            const body = data.body || "";
+        // 🛡️ XSS・属性インジェクションを完全防御（createElement 方式）
+        docIds.forEach((docId) => {
+            const news = data[docId];
+            const tr = document.createElement("tr");
+            tr.style.cssText = "border-bottom: 1px solid #eee;";
+
+            const tdDate = document.createElement("td");
+            tdDate.style.cssText = "padding: 12px 10px; color: #555; white-space: nowrap;";
             
-            const dateStr = data.date ? data.date.toDate().toLocaleDateString('ja-JP', {
-                year: 'numeric', month: '2-digit', day: '2-digit', hour:'2-digit', minute: '2-digit'
-            }): "---";
+            let dateStr = "---";
+            if (news.date) {
+                dateStr = new Date(news.date).toLocaleDateString('ja-JP', {
+                    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+                });
+            }
+            tdDate.textContent = dateStr;
 
-            const rowHTML = `
-                <tr style="border-bottom: 1px solid #eee;">
-                    <td style="padding: 12px 10px; color: #555; white-space: nowrap;">${dateStr}</td>
-                    <td style="padding: 12px 10px; color: #666; font-size: 14px; white-space: pre-wrap;">${body}</td>
-                    <td style="padding: 12px 10px;">
-                        <button class="btn-delete-news" data-id="${docId}" style="background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">削除</button>
-                    </td>
-                </tr>
-            `;
-            newsRows.push(rowHTML);
+            const tdBody = document.createElement("td");
+            tdBody.style.cssText = "padding: 12px 10px; color: #666; font-size: 14px; white-space: pre-wrap;";
+            tdBody.textContent = news.body || "";
+
+            const tdAction = document.createElement("td");
+            tdAction.style.cssText = "padding: 12px 10px;";
+            const deleteBtn = document.createElement("button");
+            deleteBtn.className = "btn-delete-news";
+            deleteBtn.setAttribute("data-id", docId); // 🛡️ 属性インジェクション防止
+            deleteBtn.style.cssText = "background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;";
+            deleteBtn.textContent = "削除";
+            tdAction.appendChild(deleteBtn);
+
+            tr.appendChild(tdDate);
+            tr.appendChild(tdBody);
+            tr.appendChild(tdAction);
+            newsBody.appendChild(tr);
         });
 
-        newsBody.innerHTML = newsRows.join("");
-
+        // お知らせ削除ボタンイベント
         newsBody.querySelectorAll('.btn-delete-news').forEach(button => {
             button.addEventListener('click', async (e) => {
-                const id = e.target.getAttribute('data-id');
+                const id = e.currentTarget.getAttribute('data-id');
                 if (id && confirm("このお知らせを完全に削除してもよろしいですか？")) {
                     try {
-                        await deleteDoc(doc(db, "news", id));
+                        const targetRef = ref(rtdb, `news/${id}`);
+                        await remove(targetRef);
                     } catch (error) {
                         console.error("お知らせ削除エラー:", error);
                         alert("削除に失敗しました。");
@@ -505,13 +586,18 @@ function setupNewsForm() {
         newsForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const newsInput = document.getElementById("newsBody");
-            const body = newsInput.value;
+            const bodyText = newsInput.value;
 
             try {
-                await addDoc(collection(db, "news"), {
-                    body: body,
-                    date: serverTimestamp()
+                // 🛡️ Firestoreではなく Realtime Database（rtdb）へプッシュ投稿する命令に変更
+                const newsListRef = ref(rtdb, 'news');
+                const newNewsRef = push(newsListRef); // 自動で新しいIDを発行
+                
+                await set(newNewsRef, {
+                    body: bodyText,
+                    date: serverTimestamp() // Realtime Database用のサーバータイムスタンプ
                 });
+                
                 alert("お知らせを投稿しました。");
                 newsInput.value = ""; // 入力欄をクリア
             } catch (error) {
@@ -521,7 +607,7 @@ function setupNewsForm() {
         });
     }
 }
-
 </script>
+
 </body>
 </html>

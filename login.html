@@ -26,7 +26,8 @@
 
 
     <script type="module">
-
+  window.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+    self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
      import{initializeApp}from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
      import{getAuth,signInWithEmailAndPassword, signOut}from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
      import{getAnalytics}from "https://www.gstatic.com/firebasejs/11.0.0/firebase-analytics.js";
