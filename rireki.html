@@ -61,7 +61,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (!historyBody) return;
 
      try {
-        console.log("購入履歴の読み込みを開始します...");
+        const historyQuery = query(collection(db, "orders"), orderBy("createdAt", "desc"));
+        
         
       onSnapshot(historyQuery, (querySnapshot) => {
             historyBody.textContent = ""; 
@@ -106,14 +107,12 @@ window.addEventListener('DOMContentLoaded', async () => {
                 `;
                 historyBody.appendChild(tr);
             });
-            console.log("購入履歴の読み込みが正常に完了しました。");
-        }, (error) => {
-            console.error("履歴データの取得に失敗しました(Snapshot):", error);
-            historyBody.innerHTML = `<tr><td colspan="6" style="padding: 20px; text-align: center; color: red;">データの読込権限またはインデックスを確認してください。</td></tr>`;
+           }, (error) => {
+            // 🚨 ここでコンソールにインデックス作成用の特別リンクが印字されます
+            console.error("履歴データ取得エラー:", error);
         });
     } catch (error) {
         console.error("履歴処理クラッシュ:", error);
-        historyBody.innerHTML = `<tr><td colspan="6" style="padding: 20px; text-align: center; color: red;">プログラムのエラーが発生しました。</td></tr>`;
     }
 });
 </script>
