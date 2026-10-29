@@ -128,21 +128,19 @@
 
 let audioCtx = null;
 
- window.addEventListener('click', () => {
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            } else if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
-        }, { once: true });
+const initAudio = () => {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+    console.log("オーディオのブロック解除");
+};
 
-        if (Notification.permission === "default") {
-            Notification.requestPermission().then(permission => {
-                if (permission === "granted") {
-                    console.log("通知が許可されました！");
-                }
-            });
-        }
+// 画面全体のクリック、またはスマホのタップを検知してブロック解除
+window.addEventListener('click', initAudio, { once: true });
+window.addEventListener('touchstart', initAudio, { once: true });
 
         window.addEventListener('pageshow', (event) => {
     // event.persisted が true の時は、ブラウザのキャッシュから画面が「復活」したことを意味します
@@ -276,10 +274,12 @@ function startOrdersMonitoring() {
                 });
             }
         
+            // 🛠️ 修正：audioCtx がスリープしていたら、ここで強制的に resume（再開）を要求します
             if (audioCtx) {
                 if (audioCtx.state === 'suspended') {
                     audioCtx.resume();
                 }
+                
                 try {
                     const playTone = (startTime, duration, frequency) => {
                         const oscillator = audioCtx.createOscillator();
@@ -295,6 +295,7 @@ function startOrdersMonitoring() {
                         oscillator.start(startTime);
                         oscillator.stop(startTime + duration);
                     };
+                    
                     const now = audioCtx.currentTime;
                     playTone(now, 0.08, 987.77);       
                     playTone(now + 0.1, 0.08, 987.77);
@@ -302,9 +303,13 @@ function startOrdersMonitoring() {
                     playTone(now + 0.45, 0.08, 987.77);
                     playTone(now + 0.55, 0.08, 987.77);
                     playTone(now + 0.65, 0.08, 1318.51);
+                    console.log("🎵 ピコピコン♪（新着注文通知音が鳴りました）");
                 } catch (e) {
                     console.error("オーディオ再生エラー:", e);
                 }
+            } else {
+                // まだクリックされておらず、audioCtx 自体が生成されていない場合の警告
+                console.warn("⚠️ 画面が一度もクリック（操作）されていないため、ブラウザの制限により通知音を再生できませんでした。");
             }
         }
 
