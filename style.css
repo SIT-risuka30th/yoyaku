@@ -489,3 +489,7 @@ tr.status-deleted:hover {
   text-decoration: none;
   display: block;
 }
+
+a{
+  color:#ffffff;
+}
