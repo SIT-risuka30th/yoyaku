@@ -54,6 +54,11 @@ header {
   display: inline-block;
   padding: 10px;
 }
+
+.menu-link{
+  color:#ffffff;
+}
+
 button {
   width: 10em;
   height:3em;
@@ -490,6 +495,3 @@ tr.status-deleted:hover {
   display: block;
 }
 
-a{
-  color:#ffffff;
-}
