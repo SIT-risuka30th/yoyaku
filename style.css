@@ -217,8 +217,8 @@ gap:0px;
   bottom: 160px;      
   z-index: 9999;      
   
-  display: flex;
-  flex-direction: column; 
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 10px;        
 }
 
@@ -441,4 +441,51 @@ tr.status-deleted:hover {
 .status-error {
     color: #dc3545;
     border-left: 4px solid #dc3545;
+}
+
+.products-grid {
+  display: flex;
+  flex-wrap: wrap;       /* 画面幅が狭くなったら自動で次の行に折り返す */
+  justify-content: center; /* 商品を中央寄せにする */
+  gap: 20px;             /* 商品ごとの隙間 */
+  padding: 20px;
+  max-width: 1200px;     /* パソコンで見ても広がりすぎない最大幅 */
+  margin: 0 auto;        /* 全体を中央に配置 */
+}
+
+/* 商品1つあたりの枠 */
+.product-item {
+  /* パソコンでは4列、iPadでは2〜3列、スマホでは1列に自動計算されます */
+  flex: 1 1 220px;       /* 最低220pxの幅を保ち、余れば均等に広がる */
+  max-width: 280px;      /* 大きくなりすぎないように制限 */
+  box-sizing: border-box;
+  text-align: center;
+  background: #ffffff;   /* 背景を白に（必要に応じて変更してください） */
+  padding: 10px;
+  border-radius: 8px;    /* 角を少し丸く */
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1); /* 軽い影をつける */
+}
+
+/* 商品画像の設定（ここが一番重要です） */
+.product-item img {
+  width: 100%;           /* 枠の幅（100%）に自動で縮小・拡大する */
+  height: auto;          /* 縦横比を崩さない */
+  border-radius: 5px;
+  display: block;
+}
+
+/* 商品名のテキスト設定 */
+.product-title {
+  margin-top: 10px;
+  font-size: 1.1rem;      /* 文字の大きさ */
+  color: #333333;
+  font-weight: bold;
+  line-height: 1.4;
+  text-decoration: none;
+}
+
+/* リンクの下線を消す */
+.product-item a {
+  text-decoration: none;
+  display: block;
 }
