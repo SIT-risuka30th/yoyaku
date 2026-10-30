@@ -79,6 +79,11 @@
                     <td id="displayF8" class="data-text">未入力</td>
                     <td id="priceF8" class="price-text">0円</td>
                 </tr>
+                <tr id="rowF9">
+                    <td>大粒ラムネ</td>
+                    <td id="displayF9" class="data-text">未入力</td>
+                    <td id="priceF9" class="price-text">0円</td>
+                </tr>
                 <tr id="rowD1">
                     <td>きりっと果実</td>
                     <td id="displayD1" class="data-text">未入力</td>
@@ -317,6 +322,7 @@ onAuthStateChanged(auth, async (user) => {
     const PRICE_F6 = 160;
     const PRICE_F7 = 130;
     const PRICE_F8 = 115;
+    const PRICE_F9 = 140;
     const PRICE_D1 = 180;
     const PRICE_D2 = 180;
     const PRICE_D3 = 150;
@@ -356,6 +362,7 @@ onAuthStateChanged(auth, async (user) => {
     const rawF6 = localStorage.getItem('inputF6') || "";
     const rawF7 = localStorage.getItem('inputF7') || "";
     const rawF8 = localStorage.getItem('inputF8') || "";
+    const rawF9 = localStorage.getItem('inputF9') || "";
     const rawD1 = localStorage.getItem('inputD1') || "";
     const rawD2 = localStorage.getItem('inputD2') || "";
     const rawD3 = localStorage.getItem('inputD3') || "";
@@ -380,6 +387,7 @@ onAuthStateChanged(auth, async (user) => {
     const savedF6 = parseInt(rawF6.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
     const savedF7 = parseInt(rawF7.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
     const savedF8 = parseInt(rawF8.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
+    const savedF9 = parseInt(rawF9.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
 
     const savedD1 = parseInt(rawD1.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
     const savedD2 = parseInt(rawD2.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248)), 10) || 0;
@@ -406,6 +414,7 @@ onAuthStateChanged(auth, async (user) => {
     const totalF6 = savedF6 * PRICE_F6;
     const totalF7 = savedF7 * PRICE_F7;
     const totalF8 = savedF8 * PRICE_F8;
+    const totalF9 = savedF9 * PRICE_F9;
     const totalD1 = savedD1 * PRICE_D1;
     const totalD2 = savedD2 * PRICE_D2;
     const totalD3 = savedD3 * PRICE_D3;
@@ -430,6 +439,7 @@ onAuthStateChanged(auth, async (user) => {
     handleRow('rowF6', 'displayF6', 'priceF6', savedF6, totalF6);
     handleRow('rowF7', 'displayF7', 'priceF7', savedF7, totalF7);
     handleRow('rowF8', 'displayF8', 'priceF8', savedF8, totalF8);
+    handleRow('rowF9', 'displayF9', 'priceF9', savedF9, totalF9);
     handleRow('rowD1', 'displayD1', 'priceD1', savedD1, totalD1);
     handleRow('rowD2', 'displayD2', 'priceD2', savedD2, totalD2);
     handleRow('rowD3', 'displayD3', 'priceD3', savedD3, totalD3);
@@ -448,14 +458,14 @@ onAuthStateChanged(auth, async (user) => {
 
     const totalPriceEl = document.getElementById('totalPrice');
     if (totalPriceEl) {
-        totalPriceEl.textContent = (totalF1 + totalF2 + totalF3 + totalF3_2 + totalF4 + totalF5 + totalF6 + totalF7 + totalF8
+        totalPriceEl.textContent = (totalF1 + totalF2 + totalF3 + totalF3_2 + totalF4 + totalF5 + totalF6 + totalF7 + totalF8 + totalF9
                                     + totalD1 + totalD2 + totalD3 + totalD4 + totalD5 + totalD6 +totalD7 + totalD8 + totalD9 + totalD10 + totalD11 + totalD12 + totalD13 + totalD14).toLocaleString();
     }
 
      const mailBtn = document.getElementById('mailBtn');
     if (mailBtn) {
         mailBtn.addEventListener('click', async () => {
-            const allTotal = totalF1 + totalF2 + totalF3 + totalF3_2 + totalF4 + totalF5 + totalF6 + totalF7 + totalF8
+            const allTotal = totalF1 + totalF2 + totalF3 + totalF3_2 + totalF4 + totalF5 + totalF6 + totalF7 + totalF8 + totalF9
                             + totalD1 + totalD2 + totalD3 + totalD4 + totalD5 + totalD6 + totalD7 + totalD8 + totalD9 + totalD10 + totalD11 +totalD12 +totalD13 +totalD14; 
 
             if (allTotal === 0) {
@@ -560,6 +570,7 @@ onAuthStateChanged(auth, async (user) => {
                 if (savedF6 > 0) itemDetails += `北海道ラブラブサンド チョコレート${savedF6}個`;
                 if (savedF7 > 0) itemDetails += `しゃりもにグミ ヨーグルト味${savedF7}個`;
                 if (savedF8 > 0) itemDetails += `フェットチーネグミ ソーダ味${savedF8}個`;
+                if (savedF9 > 0) itemDetails += `大粒ラムネ${savedF9}個`;
                 if (savedD1 > 0) itemDetails += `きりっと果実:${savedD1}個`;
                 if (savedD2 > 0) itemDetails += `キリンメッツライチ:${savedD2}個`;
                 if (savedD3 > 0) itemDetails += `きりっと果実スカッシュ:${savedD3}個`;
@@ -603,7 +614,7 @@ onAuthStateChanged(auth, async (user) => {
     const clearBtn = document.getElementById('clearBtn');
     if (clearBtn) {
         clearBtn.addEventListener('click', () => {
-            const itemsToClear = ['inputF1', 'inputF2', 'inputF3', 'inputF3-2', 'inputF4', 'inputF5','inputF6', 'inputF7', 'inputF8'
+            const itemsToClear = ['inputF1', 'inputF2', 'inputF3', 'inputF3-2', 'inputF4', 'inputF5','inputF6', 'inputF7', 'inputF8', 'inputF9'
                                 , 'inputD1', 'inputD2', 'inputD3', 'inputD4', 'inputD5', 'inputD6', 'inputD7', 'inputD8', 'inputD9', 'inputD10', 'inputD11', 'inputD12', 'inputD13', 'inputD14'];
             itemsToClear.forEach(key => localStorage.removeItem(key));
             location.reload();
