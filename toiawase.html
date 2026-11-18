@@ -60,7 +60,7 @@
     <!-- 氏名入力欄（横幅いっぱいに広げる） -->
     <div style="margin-bottom: 20px;">
         <label for="userName" style="display: block; font-weight: bold; margin-bottom: 8px; font-size: 14px; color: #444;">氏名:</label>
-        <input type="text" id="userName" placeholder="例: 札情 太郎" style="width: 100%; max-width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+        <input type="text" id="userName" placeholder="例: 情報 太郎" style="width: 100%; max-width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
     </div>
 
     <!-- お問い合わせ内容（横幅いっぱいに広げ、高さを確保） -->
@@ -120,6 +120,19 @@ async function executeSendEnquiry() {
         return;
     }
 
+    const contentInput = contentTextarea.value.trim().toLowerCase();
+    if (contentInput === "dog" || contentInput === "犬") {
+        window.location.href = "Doge.png";
+        return;
+    }
+    else if (contentInput === "ミス" || contentInput === "miss" ){
+        window.location.href = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+        return;
+    }
+    else if (contentInput === "テトリス" || contentInput === "tetoris" ){
+        window.location.href = "tetoris.html";
+        return;
+    }
 
      const gakunen = gakunenSelect ? gakunenSelect.value : "";
     const className = classSelect ? classSelect.value : "";
