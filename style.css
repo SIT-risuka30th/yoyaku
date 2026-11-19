@@ -147,7 +147,24 @@ gap:0px;
 }
 
 .button-container{
-  margin-bottom:10px;
+  display: flex;          
+  flex-wrap: wrap;        
+  gap: 15px;              
+  justify-content: flex-start; 
+  padding: 10px;
+}
+
+.nav-btn {
+  display: inline-block;
+  padding: 12px 30px;     /* ボタンの内側の余白 */
+  background-color: #4169e1;
+  color: #ffffff;
+  font-weight: bold;
+  text-decoration: none;
+  border-radius: 10px;
+  box-shadow: 3px 3px 3px #999999;
+  text-align: center;
+  white-space: nowrap;    /* ボタン内の文字が途中で改行されるのを防ぐ */
 }
 
 .hidden{
