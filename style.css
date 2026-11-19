@@ -244,6 +244,26 @@ gap:0px;
   gap: 10px;        
 }
 
+@media (max-width: 1250px) {
+  .fixed-button-container {
+    position: static;       /* 固定を解除して通常の配置にする */
+    max-width: 800px;       /* お知らせエリアと横幅を揃える */
+    margin: 20px auto;      /* お知らせのすぐ下に配置 */
+    padding: 0 15px;
+    box-sizing: border-box;
+  }
+
+  main {
+    padding-bottom: 40px;   /* 固定解除時は余分な下余白を減らす */
+  }
+}
+
+/* ③ スマホなどさらに狭い画面（500px以下）では1列にして文字切れを防ぐ */
+@media (max-width: 500px) {
+  .fixed-button-container {
+    grid-template-columns: 1fr; /* 縦1列にする */
+  }
+}
 
 .fixed-button {
   display: inline-block;
